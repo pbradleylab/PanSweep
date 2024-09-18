@@ -21,7 +21,7 @@ Imports:
     dbplyr (>= 1.1.2),
     parallelDist (>= 0.2.6),
     umap (>= 0.2.10.0),
-    vegan (== 2.6-4),
+    vegan (>= 2.6-4),
     jsonlite (>= 1.8.8),
     shiny (>= 1.7.5.1),
     plotly (>= 4.10.3),
