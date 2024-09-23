@@ -1,0 +1,21 @@
+{
+ "Varriables": {
+   "Species_Set":
+ },
+ "Databases":{
+   "path_uhgp_50_cluster": ,
+   "path_uhgp_90_cluster":,
+   "path_uhgp_50_eggNOG": ,
+   "path_uhgp_90_eggNOG": 
+ },
+ "Metadata":{
+  "path_for_genomes_all_metadata": ,
+  "path_to_sample_metadata": ,
+  "path_to_species_abundance": ,
+  "path_to_presabs": ,
+  "path_to_read_counts": 
+ },
+ "Output":{
+  "save_folder_location": 
+  }
+}
