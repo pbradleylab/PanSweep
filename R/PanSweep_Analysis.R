@@ -1,4 +1,19 @@
-
+#'@import dplyr
+#'@import progress
+#'@import readr
+#'@import purrr
+#'@import viridisLite
+#'@import arrow
+#'@import pillar
+#'@import dbplyr
+#'@import parallelDist
+#'@import umap
+#'@import vegan
+#'@import jsonlite
+#'@import tibble
+#'@import progress
+#'@import DiscreteFDR
+NULL
 
 #' PanSweep Analysis:
 #'
@@ -544,19 +559,3 @@ analyze_tbl <- function(tbl, md, min_obs = 0, merge=FALSE, merge_fn = base::max,
 }
 
 
-#'@import tidyverse
-#'@import progress
-#'@import readr
-#'@import purrr
-#'@import viridisLite
-#'@import arrow
-#'@import pillar
-#'@import dbplyr
-#'@import parallelDist
-#'@import umap
-#'@import vegan
-#'@import jsonlite
-#'@import tibble
-#'@import progress
-#'@import DiscreteFDR
-NULL
