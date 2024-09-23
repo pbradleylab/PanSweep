@@ -22,12 +22,14 @@
 #' @param Max_FDR  False discovery rate threshold. Set to 0.05 by default.
 #' @param merge_fn_binary  Function to use for merging binary data from different samples but the same subject. Default is `base::max`.
 #' @param merge_fn_counts  Function to use for merging count data from different samples but the same subject. Default is `base::sum`.
+#' @param verbose  Boolean. Print messages; default is FALSE.
 #' @return Returned a date stamped folder called PanSweep_Analysis_Output_YYYY-MM-DD
 #' containing the file "PanSweep_Analysis_Output.rds".
 #'
 #'@import tidyverse
 #'@import progress
 #'@import readr
+#'@import purrr
 #'@import viridisLite
 #'@import arrow
 #'@import pillar
@@ -36,6 +38,8 @@
 #'@import umap
 #'@import vegan
 #'@import jsonlite
+#'@import tibble
+#'@import progress
 #'@import DiscreteFDR
 #'@export
 PanSweep_Analysis <- function(Json_Config_Path,
@@ -43,7 +47,8 @@ PanSweep_Analysis <- function(Json_Config_Path,
                               Pres_abs_lower_limit = 0,
                               Max_FDR = 0.05,
                               merge_fn_binary = base::max,
-                              merge_fn_counts = base::sum
+                              merge_fn_counts = base::sum,
+                              verbose=FALSE
                               ) {
   ####################################################################################################################
   #Load in Paths and variables via JSON#
@@ -51,35 +56,41 @@ PanSweep_Analysis <- function(Json_Config_Path,
   #Variables:
   Species_Set <- Paths_and_Variables$Variables$Species_Set
   #Databases:
-  path_uhgp_50_cluster <- Paths_and_Variables$Databases$path_uhgp_50_cluster
-  path_uhgp_90_cluster <- Paths_and_Variables$Databases$path_uhgp_90_cluster
-  path_uhgp_50_eggNOG <- Paths_and_Variables$Databases$path_uhgp_50_eggNOG
-  path_uhgp_90_eggNOG <- Paths_and_Variables$Databases$path_uhgp_90_eggNOG
+  path_uhgp_50_cluster <- normalizePath(Paths_and_Variables$Databases$path_uhgp_50_cluster)
+  path_uhgp_90_cluster <- normalizePath(Paths_and_Variables$Databases$path_uhgp_90_cluster)
+  path_uhgp_50_eggNOG <- normalizePath(Paths_and_Variables$Databases$path_uhgp_50_eggNOG)
+  path_uhgp_90_eggNOG <- normalizePath(Paths_and_Variables$Databases$path_uhgp_90_eggNOG)
   #Metadata:
-  path_for_genomes_all_metadata <- Paths_and_Variables$Metadata$path_for_genomes_all_metadata
-  path_phylo_md2 <- Paths_and_Variables$Metadata$path_to_sample_metadata
-  path_to_presabs <- Paths_and_Variables$Metadata$path_to_presabs
-  path_to_species_abundance <- Paths_and_Variables$Metadata$path_to_species_abundance
-  path_to_read_counts <- Paths_and_Variables$Metadata$path_to_read_counts
+  path_for_genomes_all_metadata <- normalizePath(Paths_and_Variables$Metadata$path_for_genomes_all_metadata)
+  path_phylo_md2 <- normalizePath(Paths_and_Variables$Metadata$path_to_sample_metadata)
+  path_to_presabs <- normalizePath(Paths_and_Variables$Metadata$path_to_presabs)
+  path_to_species_abundance <- normalizePath(Paths_and_Variables$Metadata$path_to_species_abundance)
+  path_to_read_counts <- normalizePath(Paths_and_Variables$Metadata$path_to_read_counts)
+  is_compressed <- Paths_and_Variables$Metadata$gene_data_is_compressed
   #Output:
-  save_folder_location <- Paths_and_Variables$Output$save_folder_location
+  save_folder_location <- normalizePath(Paths_and_Variables$Output$save_folder_location)
 
   #Change variable name:
   Corr_lower_limit <- Co_occurrence_lower_limit
 
   ####################################################################################################################
+  if (verbose) message("Reading in presence-absence data...")
   phylo_md2 <- read_tsv(path_phylo_md2)
-  test_tbls <- map(Species_Set, ~ read_tsv(paste0(path_to_presabs,
-                                                  .x,
-                                                  "/",
-                                                  .x,
-                                                  ".genes_presabs.tsv"),
-                                           col_types=cols()) %>%
-                     merge_columns_tbl(md=phylo_md2, fn=merge_fn_binary))
+  test_tbls <- purrr::map(Species_Set, ~ {
+    gpath <- file.path(path_to_read_counts, .x, paste0(.x, ".genes_presabs.tsv"))
+    if (is_compressed) {
+      gpath <- paste0(gpath, ".lz4")
+      tsv <- read_tsv_arrow(gpath)
+    } else {
+      tsv <- read_tsv(gpath, col_types=cols())
+    }
+    merge_columns_tbl(tsv, md=phylo_md2, fn=merge_fn_binary)
+  })
+  if (verbose) message("Calculating tests...")
   # run Fisher test analysis
-  pb <- progress_estimated(length(test_tbls))
+  pb <- progress_bar$new(total = length(test_tbls))
   test_results <- purrr::map(test_tbls, ~ {
-    pb$tick()$print()
+    pb$tick()
     analyze_tbl(.x, md=phylo_md2)
   })
   names(test_results) <- Species_Set
@@ -88,7 +99,7 @@ PanSweep_Analysis <- function(Json_Config_Path,
   # extract for each fdrs in each member of test_results, names of genes with fdr <= Max_FDR
   #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
   #Extracting genes with fdrs<=Max_FDR#
-  test_results_fdrs <- map(test_results, function(x) enframe(x$fdrs,
+  test_results_fdrs <- purrr::map(test_results, function(x) enframe(x$fdrs,
                                                              name = "Gene_id",
                                                              value = "Fdrs"))
   #enframe is used in named vector
@@ -110,6 +121,7 @@ PanSweep_Analysis <- function(Json_Config_Path,
   Number_of_Significant_Genes <- nrow(Gene_extract_tbl)
 
 
+  if (verbose) message("Getting extra info from Parquet databases...")
   #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
   #Adding cluster ids#
   Gut_Trans <- gsub("UHGG","", Gene_extract_tbl$Gene_id) %>%
@@ -175,6 +187,7 @@ PanSweep_Analysis <- function(Json_Config_Path,
 
   Num_rep_UHGP_50_clus_id <- sum(UHGP_50_cluster_id_summ$n)
   #______________________________________________________________________________#
+  if (verbose) message("Adding EggNOG information...")
   #Assign eggNOG Taxonomy and gene info#
   prqt_uhgp_50_eggNOG <- arrow::open_dataset(path_uhgp_50_eggNOG, format = "parquet")
   prqt_uhgp_90_eggNOG <- arrow::open_dataset(path_uhgp_90_eggNOG, format = "parquet")
@@ -239,9 +252,11 @@ PanSweep_Analysis <- function(Json_Config_Path,
   ################################################################################
   #Shiny Prep#
   #______________________________________________________________________________#
+  if (verbose) message("Computing distance matrices...")
   #Correlate by runs#
   Sp_corr <- lapply(Sp_to_corr_Runs, function(x) parDist(as.matrix(x), method = 'binary'))
   M.Sp_corr <- lapply(Sp_corr, function(x) as.matrix(x))
+  if (verbose) message("Computing ordinations...")
   #______________________________________________________________________________#
   #UMAP_IT#
   Species <- Num_Sig_Genes_per_sp$Species_id
@@ -270,6 +285,7 @@ PanSweep_Analysis <- function(Json_Config_Path,
   #Significant genes to species correlation#
   #!!!Read in of docs needs to be fixed!!#
   #Now merges by default#
+  if (verbose) message("Performing gene-to-species correlation lineage test...")
   Species_Abd <-read_tsv(path_to_species_abundance) %>%
     pivot_longer(!species_id, names_to = "run", values_to = "species_count") %>%
     pivot_wider(names_from = "species_id", values_from = "species_count") %>%
@@ -278,17 +294,18 @@ PanSweep_Analysis <- function(Json_Config_Path,
   #Determine significant species:
   species_set_corr <- unique(Genes_intr_extr$Species_id)
   #Read in and merge gene counts:
-  Gene_reads <- map(species_set_corr, ~
-                      read_tsv(paste0(path_to_read_counts,
-                                      .x,
-                                      "/",
-                                      .x,
-                                      ".genes_reads.tsv"),
-                               col_types=cols()) %>%
-                      merge_columns_tbl(md=phylo_md2, fn=merge_fn_counts)
-  ) %>% setNames(species_set_corr)
+  Gene_reads <- purrr::map(species_set_corr, ~ {
+    gpath <- file.path(path_to_read_counts, .x, paste0(.x, ".genes_reads.tsv"))
+    if (is_compressed) {
+      gpath <- paste0(gpath, ".lz4")
+      tsv <- read_tsv_arrow(gpath)
+    } else {
+      tsv <- read_tsv(gpath, col_types=cols())
+    }
+    merge_columns_tbl(tsv, md=phylo_md2, fn=merge_fn_counts)
+  }) %>% setNames(species_set_corr)
   #Extract reads for significant genes:
-  Sig_Gene_copyNum <- map(species_set_corr, ~dplyr::filter(Gene_reads[[.x]], gene_id %in% Genes_intr_extr$Gene_id) %>% pivot_longer(!gene_id, names_to = "run", values_to = "Gene_count") %>% pivot_wider(names_from = "gene_id", values_from = "Gene_count") %>% column_to_rownames("run")) %>% setNames(species_set_corr)
+  Sig_Gene_copyNum <- purrr::map(species_set_corr, ~dplyr::filter(Gene_reads[[.x]], gene_id %in% Genes_intr_extr$Gene_id) %>% pivot_longer(!gene_id, names_to = "run", values_to = "Gene_count") %>% pivot_wider(names_from = "gene_id", values_from = "Gene_count") %>% column_to_rownames("run")) %>% setNames(species_set_corr)
   #Correlate with try catch & cor.test:
   Cor_Results <-
     lapply(names(Sig_Gene_copyNum), function(sp){
@@ -339,7 +356,7 @@ PanSweep_Analysis <- function(Json_Config_Path,
   }) %>% setNames(names(Cor_Results_df))
   #Completely flatten
   Layer_1 <- Cor_Results_max_targ %>% enframe(name =  "Species", value = "Data")
-  Layer_2 <- Layer_1 %>% mutate(Data = map(Data, ~enframe(.x, name = "Gene", value = "Data2"))) %>% unnest(Data)
+  Layer_2 <- Layer_1 %>% mutate(Data = purrr::map(Data, ~enframe(.x, name = "Gene", value = "Data2"))) %>% unnest(Data)
   Species_Cor_DF <- Layer_2 %>% unnest(cols = Data2)
   #______________________________________________________________________________#
   #Determine if lineage to Family is shared#
@@ -371,7 +388,7 @@ PanSweep_Analysis <- function(Json_Config_Path,
   }) %>% setNames(names(Cor_Sp_label))
   #Flatten to dataframe:
   Layer_1 <- Cor_Sp_agree %>% enframe(name =  "Species", value = "Data")
-  Cor_Sp_agree_DF <- Layer_1 %>% mutate(Data = map(Data, ~enframe(.x, name = "Gene", value = "Lineage_Shared"))) %>% unnest(Data)
+  Cor_Sp_agree_DF <- Layer_1 %>% mutate(Data = purrr::map(Data, ~enframe(.x, name = "Gene", value = "Lineage_Shared"))) %>% unnest(Data)
   Cor_Sp_agree_DF$Lineage_Shared <- Cor_Sp_agree_DF$Lineage_Shared %>% unlist()
   #______________________________________________________________________________#
   #Report species with max spearman correlation#
@@ -387,7 +404,7 @@ PanSweep_Analysis <- function(Json_Config_Path,
   }) %>% setNames(names(Cor_Results_max_targ))
   #Need to keep information when unnesting:
   Layer_1 <- sp_lable  %>% enframe(name =  "Species_OG", value = "Data")
-  Layer_2 <- Layer_1 %>% mutate(Data = map(Data, ~enframe(.x, name = "Gene", value = "Data2"))) %>% unnest(Data)
+  Layer_2 <- Layer_1 %>% mutate(Data = purrr::map(Data, ~enframe(.x, name = "Gene", value = "Data2"))) %>% unnest(Data)
   sp_report_DF <- Layer_2 %>% unnest(cols = Data2)
   #Transfer post DF being made:
   sp_report_DF <- sp_report_DF %>%  mutate(Species = ifelse(is.na(Species), Genus, Species)) %>%
@@ -400,7 +417,8 @@ PanSweep_Analysis <- function(Json_Config_Path,
   uhgp_90_eggNOG <- left_join(uhgp_90_eggNOG, Cor_Sp_Ln_max_sp_DF %>% select("Gene", "Lineage_Shared", "cor_max_species"), by = c("Gene_id" = "Gene"))
   #______________________________________________________________________________#
   #Create Report#
-  Analysis_report <- as_tibble(cbind(c("Number of Significant Genes", "Number of Species with Significant Genes", "Number of repeated UHGP-90 ids", "Number of repeated UHGP-50 ids"),
+  if (verbose) message("Creating report and outputting results...")
+  Analysis_report <- tibble::as_tibble(cbind(c("Number of Significant Genes", "Number of Species with Significant Genes", "Number of repeated UHGP-90 ids", "Number of repeated UHGP-50 ids"),
                                      c(Number_of_Significant_Genes, nrow(Num_Sig_Genes_per_sp), Num_rep_UHGP_90_clus_id, Num_rep_UHGP_50_clus_id)))
   Analysis_output_names <- c('Analysis_report','Number_of_Significant_Genes', 'UHGP_90_cluster_id_summ', 'UHGP_50_cluster_id_summ', 'Num_Sig_Genes_per_sp', 'uhgp_90_eggNOG')
   Analysis_output <- setNames(mget(Analysis_output_names), Analysis_output_names)
@@ -462,7 +480,7 @@ merge_columns_tbl <- function(tbl, md, fn=base::max, rowcol=1) {
   mtx <- as.matrix(tbl[, -rowcol])
   rownames(mtx) <- tbl[[rowcol]]
   output_mtx <- merge_columns(mtx, md, fn)
-  output_tbl <- as_tibble(output_mtx, rownames=colnames(tbl)[rowcol])
+  output_tbl <- tibble::as_tibble(output_mtx, rownames=colnames(tbl)[rowcol])
   output_tbl
 }
 
