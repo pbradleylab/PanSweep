@@ -1,0 +1,21 @@
+{
+  "Variables": {
+    "Species_Set": ["100060", "100271", "100217", "102492","100078", "103694", "100562", "102580", "100041", "101380", "100190", "100249", "100076", "100205", "100251", "100148", "101338", "102517", "102445", "100242", "102528", "104317", "102609", "100245"]
+  },
+  "Databases": {
+    "path_uhgp_50_cluster": "db/Parquet/uhgp_50_cluster",
+    "path_uhgp_90_cluster": "db/Parquet/uhgp_90_cluster",
+    "path_uhgp_50_eggNOG": "db/Parquet/uhgp_50_eggNOG",
+    "path_uhgp_90_eggNOG": "db/Parquet/uhgp_90_eggNOG"
+  },
+  "Metadata": {
+    "path_for_genomes_all_metadata": "db/genome_metadata.tsv",
+    "path_to_sample_metadata": "data/sample_metadata.tsv",
+    "path_to_species_abundance": "data/species_marker_read_counts.tsv",
+    "path_to_presabs": "data/midas/genes/",
+    "path_to_read_counts": "data/midas/genes/"
+  },
+  "Output": {
+    "save_folder_location": "output/"
+  }
+}

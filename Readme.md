@@ -5,7 +5,7 @@ The analysis and results evaluation is fully described in *PAPER HERE*
 
 # Installing PanSweep Package
 
-PanSweep can be installed by using dev.tools to install from git hub. The following packages need to be installed for each part of the analysis.
+PanSweep can be installed by using dev.tools to install from github. The following packages need to be installed for each part of the analysis.
 
 ~~~~
 devtools::install_github()
@@ -23,7 +23,7 @@ The PanSweep Analysis is designed to be run on a HPC cluster. It will need at le
 
 First, download the parquet databases from figshare *HERE* and place them in a directory the R analysis can read.
 
-Next, prepare the JASON config file with the below paths. An empty config file is provided on this repository. If any paths are missing the analysis will be unable to run. For an example please reference the example.jason file on this repository.
+Next, prepare the JSON config file with the below paths. An empty config file is provided on this repository. If any paths are missing the analysis will be unable to run. For an example please reference the example.json file on this repository.
 
 |Path Name                         |Description                                                            |
 |----------------------------------|-----------------------------------------------------------------------|
@@ -57,7 +57,7 @@ PanSweep_Shiny(loadData_Path = "Path/to/file/PanSweep_Analysis_Output_YYYY-MM-DD
 ~~~~
 ### Analysis Report
 
-The analysis report provides information on the number of genes found to be signifiant, the number of species that have significant genes, the number of genes per species, and if there are any repeated UHGP-90 and UHGP-50 cluster ids. 
+The analysis report provides information on the number of genes found to be significant, the number of species that have significant genes, the number of genes per species, and if there are any repeated UHGP-90 and UHGP-50 cluster ids. 
 
 ### eggNOG & Correlation Report
 
@@ -65,7 +65,7 @@ This report provides infromation on the individual genes from eggNOG from the UH
 
 ### Ordination & Heatmap
 
-Ordination plots for UMAP, NMDS, and PcoA are made from the jaccard co-occurance matrix of genes by sample. The numerical sliders allow the adjustment of the n_neighboors and min_dist values for the UMAP ordination plot. The jaccard similarity heatmap is based off of co-occurance of genes by sample.  If the heatmap or ordination plots are clicked the gene on the heatmap will be highlighted. 
+Ordination plots for UMAP, NMDS, and PCoA are made from the Jaccard co-occurrence matrix of genes by sample. The numerical sliders allow the adjustment of the n_neighbors and min_dist values for the UMAP ordination plot. The Jaccard similarity heatmap is based off of co-occurance of genes by sample.  If the heatmap or ordination plots are clicked the gene on the heatmap will be highlighted. 
 
 ### NMDS
-The NMDS provides the NMDS ordiantion plot and stress plot by species for evaluation of NMDS results.
+The NMDS provides the NMDS ordination plot and stress plot by species for evaluation of NMDS results.
