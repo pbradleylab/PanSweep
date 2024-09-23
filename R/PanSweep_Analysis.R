@@ -1,14 +1,16 @@
-#'PanSweep Analysis:
+
+
+#' PanSweep Analysis:
 #'
-#'This function run the analysis of MIDAS2 data and outputs a save file to be
-#'used with the PanSweep_Shiny() function. The inputs are Json_Config_Path and
-#'Co_occurrence_lower_limit, which is set to 3. Refer to the PanSweep github for
-#'the Json file and explanations.
+#' This function run the analysis of MIDAS2 data and outputs a save file to be
+#' used with the PanSweep_Shiny() function. The inputs are Json_Config_Path and
+#' Co_occurrence_lower_limit, which is set to 3. Refer to the PanSweep github for
+#' the Json file and explanations.
 #'
 #' To run the function:
 #' PanSweep_Analysis(Json_Config_Path = "Path/To/Json/file.json")
 #'
-#'To change the lower bound for number of genes needed for co-occurence
+#' To change the lower bound for number of genes needed for co-occurence
 #'  analysis:
 #' PanSweep_Analysis(Json_Config_Path = "Path/To/Json/file.json",
 #'                    Co_occurrence_lower_limit = 5)
@@ -26,21 +28,6 @@
 #' @return Returned a date stamped folder called PanSweep_Analysis_Output_YYYY-MM-DD
 #' containing the file "PanSweep_Analysis_Output.rds".
 #'
-#'@import tidyverse
-#'@import progress
-#'@import readr
-#'@import purrr
-#'@import viridisLite
-#'@import arrow
-#'@import pillar
-#'@import dbplyr
-#'@import parallelDist
-#'@import umap
-#'@import vegan
-#'@import jsonlite
-#'@import tibble
-#'@import progress
-#'@import DiscreteFDR
 #'@export
 PanSweep_Analysis <- function(Json_Config_Path,
                               Co_occurrence_lower_limit = 3,
@@ -99,22 +86,23 @@ PanSweep_Analysis <- function(Json_Config_Path,
   # extract for each fdrs in each member of test_results, names of genes with fdr <= Max_FDR
   #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
   #Extracting genes with fdrs<=Max_FDR#
-  test_results_fdrs <- purrr::map(test_results, function(x) enframe(x$fdrs,
-                                                             name = "Gene_id",
-                                                             value = "Fdrs"))
+  test_results_fdrs <- purrr::map(test_results,
+                                  function(x) tibble::enframe(x$fdrs,
+                                                              name = "Gene_id",
+                                                              value = "Fdrs"))
   #enframe is used in named vector
   #creates a list under species_id and removes other unneeded lists (ie pvals)
-  test_results_lt_tbl <- enframe(test_results_fdrs, name = "Species_id")
+  test_results_lt_tbl <- tibble::enframe(test_results_fdrs, name = "Species_id")
   #creates a list of tibbles under species
-  test_results_tbl <- unnest(test_results_lt_tbl, cols = c(value))
+  test_results_tbl <- tidyr::unnest(test_results_lt_tbl, cols = c(value))
   #makes a tbl of the test results ALL fdrs are included
 
-  Gene_extract_tbl <- filter(test_results_tbl, Fdrs<=Max_FDR)
+  Gene_extract_tbl <- dplyr::filter(test_results_tbl, Fdrs<=Max_FDR)
   #Extract all genes by (with species) that are Fdrs<=Max_FDR
   Genes_of_intr <- unique(Gene_extract_tbl$Gene_id)
 
 
-  Genes_intr_extr <- filter(test_results_tbl, Gene_id %in% Genes_of_intr)
+  Genes_intr_extr <- dplyr::filter(test_results_tbl, Gene_id %in% Genes_of_intr)
   # Extract all genes from the test results tbl (ALL fdrs) that are in the "Genes_of_interest" vector.
 
   #start list for report:
@@ -132,7 +120,7 @@ PanSweep_Analysis <- function(Json_Config_Path,
 
   Gene_intr_uhgp_90 <- prqt_uhgp_90 %>%
     filter(gene_id %in% Gut_Trans) %>%
-    collect() %>%
+    dplyr::collect() %>%
     dplyr::select(-c(group)) %>%
     rename(cluster_id_n = cluster_id)
 
@@ -142,7 +130,7 @@ PanSweep_Analysis <- function(Json_Config_Path,
 
   Gene_intr_uhgp_50 <- prqt_uhgp_50 %>%
     filter(gene_id %in% Gut_Trans) %>%
-    collect() %>%
+    dplyr::collect() %>%
     dplyr::select(-c(group)) %>%
     rename(cluster_id_n = cluster_id)
 
@@ -195,13 +183,13 @@ PanSweep_Analysis <- function(Json_Config_Path,
   uhgp_90_eggNOG <- prqt_uhgp_90_eggNOG %>%
     filter(query_name %in% UHGP_90_genes_of_int$cluster_id) %>%
     select(query_name, Predicted_taxonomic_group, Predicted_protein_name, eggNOG_free_text_description) %>%
-    collect() %>%
+    dplyr::collect() %>%
     right_join(UHGP_90_genes_of_int, by = c("query_name" = "cluster_id"), keep = TRUE)
 
   uhgp_50_eggNOG <- prqt_uhgp_50_eggNOG %>%
     filter(query_name %in% UHGP_50_genes_of_int$cluster_id) %>%
     select(query_name, Predicted_taxonomic_group, Predicted_protein_name, eggNOG_free_text_description) %>%
-    collect() %>%
+    dplyr::collect() %>%
     right_join(UHGP_90_genes_of_int, by = c("query_name" = "cluster_id"), keep = TRUE)
   #______________________________________________________________________________#
   #Add in Taxonomy info#
@@ -313,7 +301,7 @@ PanSweep_Analysis <- function(Json_Config_Path,
         lapply(colnames(Species_Abd), function(s){
           tryCatch({
             g_x <- as.numeric(Sig_Gene_copyNum[[sp]][[g]])
-            sp_y <- as.numeric(Species_Abd %>% filter(rownames(.) %in% rownames(Sig_Gene_copyNum[[sp]])) %>% pull(s))
+            sp_y <- as.numeric(Species_Abd %>% dplyr::filter(rownames(.) %in% rownames(Sig_Gene_copyNum[[sp]])) %>% pull(s))
             cor.test(g_x, sp_y, method = "spearman", exact = FALSE) %>% .$estimate
           },
           warning = function(w){
@@ -355,19 +343,21 @@ PanSweep_Analysis <- function(Json_Config_Path,
     }) %>% setNames(names(Cor_Results_df[[s]]))
   }) %>% setNames(names(Cor_Results_df))
   #Completely flatten
-  Layer_1 <- Cor_Results_max_targ %>% enframe(name =  "Species", value = "Data")
-  Layer_2 <- Layer_1 %>% mutate(Data = purrr::map(Data, ~enframe(.x, name = "Gene", value = "Data2"))) %>% unnest(Data)
-  Species_Cor_DF <- Layer_2 %>% unnest(cols = Data2)
+  Layer_1 <- Cor_Results_max_targ %>% tibble::enframe(name =  "Species", value = "Data")
+  Layer_2 <- Layer_1 %>%
+    mutate(Data = purrr::map(Data, ~ tibble::enframe(.x, name = "Gene", value = "Data2"))) %>%
+    tidyr::unnest(Data)
+  Species_Cor_DF <- Layer_2 %>% tidyr::unnest(cols = Data2)
   #______________________________________________________________________________#
   #Determine if lineage to Family is shared#
   #Extract species:
   Cor_Sp_label <- lapply(names(Cor_Results_max_targ),function(s){
     lapply(names(Cor_Results_max_targ[[s]]), function(g){
-      m <- Cor_Results_max_targ[[s]][[g]] %>% filter(mark == "max") %>% pull(Species_Cor)
-      m_sp <- as.data.frame(meta_genome_sep_taxa %>% filter(species_id == m) %>% select("Domain", "Phylum", "Class", "Order", "Family"))
+      m <- Cor_Results_max_targ[[s]][[g]] %>% dplyr::filter(mark == "max") %>% pull(Species_Cor)
+      m_sp <- as.data.frame(meta_genome_sep_taxa %>% dplyr::filter(species_id == m) %>% select("Domain", "Phylum", "Class", "Order", "Family"))
       rownames(m_sp) <- paste(rep("max", nrow(m_sp)), 1:nrow(m_sp))
-      t <-  Cor_Results_max_targ[[s]][[g]] %>% filter(mark == "target") %>% pull(Species_Cor)
-      t_sp <- as.data.frame(meta_genome_sep_taxa %>% filter(species_id == t) %>% select("Domain", "Phylum", "Class", "Order", "Family"))
+      t <-  Cor_Results_max_targ[[s]][[g]] %>% dplyr::filter(mark == "target") %>% pull(Species_Cor)
+      t_sp <- as.data.frame(meta_genome_sep_taxa %>% dplyr::filter(species_id == t) %>% select("Domain", "Phylum", "Class", "Order", "Family"))
       rownames(t_sp) <- "target"
       df <- bind_rows(t_sp, m_sp)
       return(df)
@@ -387,25 +377,25 @@ PanSweep_Analysis <- function(Json_Config_Path,
     }) %>% setNames(names(Cor_Sp_label[[s]]))
   }) %>% setNames(names(Cor_Sp_label))
   #Flatten to dataframe:
-  Layer_1 <- Cor_Sp_agree %>% enframe(name =  "Species", value = "Data")
-  Cor_Sp_agree_DF <- Layer_1 %>% mutate(Data = purrr::map(Data, ~enframe(.x, name = "Gene", value = "Lineage_Shared"))) %>% unnest(Data)
+  Layer_1 <- Cor_Sp_agree %>% tibble::enframe(name =  "Species", value = "Data")
+  Cor_Sp_agree_DF <- Layer_1 %>% mutate(Data = purrr::map(Data, ~ tibble::enframe(.x, name = "Gene", value = "Lineage_Shared"))) %>% tidyr::unnest(Data)
   Cor_Sp_agree_DF$Lineage_Shared <- Cor_Sp_agree_DF$Lineage_Shared %>% unlist()
   #______________________________________________________________________________#
   #Report species with max spearman correlation#
   sp_lable <- lapply(names(Cor_Results_max_targ),function(s){
     lapply(names(Cor_Results_max_targ[[s]]), function(g){
-      m <- Cor_Results_max_targ[[s]][[g]] %>% filter(mark == "max") %>% pull(Species_Cor)
-      m_sp <- as.data.frame(meta_genome_sep_taxa %>% filter(species_id == m) %>% select("Species"))
+      m <- Cor_Results_max_targ[[s]][[g]] %>% dplyr::filter(mark == "max") %>% pull(Species_Cor)
+      m_sp <- as.data.frame(meta_genome_sep_taxa %>% dplyr::filter(species_id == m) %>% select("Species"))
       if(m_sp == ''){
-        m_sp <- as.data.frame(meta_genome_sep_taxa %>% filter(species_id == m) %>% select("Genus"))
+        m_sp <- as.data.frame(meta_genome_sep_taxa %>% dplyr::filter(species_id == m) %>% select("Genus"))
       }
       return(as.data.frame(m_sp))
     }) %>% setNames(names(Cor_Results_max_targ[[s]]))
   }) %>% setNames(names(Cor_Results_max_targ))
   #Need to keep information when unnesting:
-  Layer_1 <- sp_lable  %>% enframe(name =  "Species_OG", value = "Data")
-  Layer_2 <- Layer_1 %>% mutate(Data = purrr::map(Data, ~enframe(.x, name = "Gene", value = "Data2"))) %>% unnest(Data)
-  sp_report_DF <- Layer_2 %>% unnest(cols = Data2)
+  Layer_1 <- sp_lable  %>% tibble::enframe(name =  "Species_OG", value = "Data")
+  Layer_2 <- Layer_1 %>% mutate(Data = purrr::map(Data, ~ tibble::enframe(.x, name = "Gene", value = "Data2"))) %>% tidyr::unnest(Data)
+  sp_report_DF <- Layer_2 %>% tidyr::unnest(cols = Data2)
   #Transfer post DF being made:
   sp_report_DF <- sp_report_DF %>%  mutate(Species = ifelse(is.na(Species), Genus, Species)) %>%
     select("Species_OG", "Gene", "Species") %>% rename(cor_max_species = Species)
@@ -514,7 +504,7 @@ analyze_tbl <- function(tbl, md, min_obs = 0, merge=FALSE, merge_fn = base::max,
   which_rows <- apply(merge_mtx, 1, function(x) (sum(x) >= min_obs) & (sum(!x) >= min_obs))
   clean_mtx <- merge_mtx[which_rows, ]
   conditions <- unique(md$env)
-  message(paste0(length(conditions), " different conditions detected: ", paste0(conditions, collapse=", ")))
+  if (verbose) message(paste0(length(conditions), " different conditions detected: ", paste0(conditions, collapse=", ")))
   if (length(conditions) != 2) { error("Currently PanSweep only works when there are two conditions") }
   subjects_per_condition <- lapply(conditions, \(this_cond) {
     intersect(colnames(clean_mtx), md$subject[md$env==this_cond])
@@ -552,3 +542,21 @@ analyze_tbl <- function(tbl, md, min_obs = 0, merge=FALSE, merge_fn = base::max,
               subjects_per_condition=subjects_per_condition,
               clean_mtx=clean_mtx))
 }
+
+
+#'@import tidyverse
+#'@import progress
+#'@import readr
+#'@import purrr
+#'@import viridisLite
+#'@import arrow
+#'@import pillar
+#'@import dbplyr
+#'@import parallelDist
+#'@import umap
+#'@import vegan
+#'@import jsonlite
+#'@import tibble
+#'@import progress
+#'@import DiscreteFDR
+NULL

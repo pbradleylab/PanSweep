@@ -4,13 +4,33 @@
 \alias{PanSweep_Analysis}
 \title{PanSweep Analysis:}
 \usage{
-PanSweep_Analysis(Json_Config_Path, Co_occurrence_lower_limit = 3)
+PanSweep_Analysis(
+  Json_Config_Path,
+  Co_occurrence_lower_limit = 3,
+  Pres_abs_lower_limit = 0,
+  Max_FDR = 0.05,
+  merge_fn_binary = base::max,
+  merge_fn_counts = base::sum,
+  verbose = FALSE
+)
 }
 \arguments{
 \item{Json_Config_Path}{Path to the completed json config file}
 
 \item{Co_occurrence_lower_limit}{lower bound for number of genes needed for
 co-occurrence analysis. Set to 3.}
+
+\item{Pres_abs_lower_limit}{lower bound for number of times a gene must be
+present and absent in order for it to be counted. Set to 0 (no filtering) by
+default since DiscreteFDR automatically handles these cases well.}
+
+\item{Max_FDR}{False discovery rate threshold. Set to 0.05 by default.}
+
+\item{merge_fn_binary}{Function to use for merging binary data from different samples but the same subject. Default is \code{base::max}.}
+
+\item{merge_fn_counts}{Function to use for merging count data from different samples but the same subject. Default is \code{base::sum}.}
+
+\item{verbose}{Boolean. Print messages; default is FALSE.}
 }
 \value{
 Returned a date stamped folder called PanSweep_Analysis_Output_YYYY-MM-DD
