@@ -126,6 +126,7 @@ PanSweep_Analysis <- function(Json_Config_Path,
 
   if (verbose) message("Getting extra info from Parquet databases...")
   #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
+
   #Adding cluster ids#
   Gut_Trans <- gsub("UHGG","", Gene_extract_tbl$Gene_id) %>%
     gsub("_", "", .)
@@ -210,22 +211,7 @@ PanSweep_Analysis <- function(Json_Config_Path,
   #Add in Taxonomy info#
   genome_metadata <- read_tsv(file= path_for_genomes_all_metadata)
 
-  separate_taxonomy_with_s <- function(inpt, taxa_col){
-    inpt <- inpt %>%
-      separate(taxa_col, into = c("d", "p", "c", "o", "f", "g", "s"), sep = ";") %>%
-      mutate(across(c("d", "p", "c", "o", "f", "g", "s"), ~ gsub("[dpcofgs]__","", .))) %>%
-      rename_with(~ case_when(
-        . == "d" ~ "Domain",
-        . == "p" ~ "Phylum",
-        . == "c" ~ "Class",
-        . == "o" ~ "Order",
-        . == "f" ~ "Family",
-        . == "g" ~ "Genus",
-        . == "s" ~ "Species",
-        TRUE ~ .
-      ))
-    return(inpt)
-  }
+
 
   meta_genome_sep_taxa <- genome_metadata %>% separate_taxonomy_with_s("Lineage") %>%
     mutate(species_id = as.character(species_id))
@@ -288,7 +274,10 @@ PanSweep_Analysis <- function(Json_Config_Path,
   #Significant genes to species correlation#
   #!!!Read in of docs needs to be fixed!!#
   #Now merges by default#
+
+
   if (verbose) message("Performing gene-to-species correlation lineage test...")
+  #g2s_corr_lineage_test <- function(Species_Abd, Gene_reads, Sig_Genes, )
   Species_Abd <-read_tsv(path_to_species_abundance) %>%
     pivot_longer(!species_id, names_to = "run", values_to = "species_count") %>%
     pivot_wider(names_from = "species_id", values_from = "species_count") %>%
@@ -489,6 +478,16 @@ merge_columns_tbl <- function(tbl, md, fn=base::max, rowcol=1) {
   output_tbl
 }
 
+#' Convenience function to convert table to matrix.
+#'
+#' @param tbl tbl/df. Tibble or dataframe to convert to matrix. Row names come from `colnum`.
+#' @param colrow Integer. Which column has the row names? Default = 1.
+tbl_to_mtx <- function(tbl, colrow=1) {
+  mtx <- as.matrix(tbl[, -colrow])
+  rownames(mtx) <- tbl[[colrow]]
+  mtx
+}
+
 #'Analyze gene tables with Fisher's exact test and report discrete FDR.
 #'
 #'This function analyzes a gene table with an associated metadata table by performing a Fisher's exact test per gene, then correcting the resulting p-values using DiscreteFDR. Genes may also optionally be filtered by the minimum number of presences and absences.
@@ -558,4 +557,24 @@ analyze_tbl <- function(tbl, md, min_obs = 0, merge=FALSE, merge_fn = base::max,
               clean_mtx=clean_mtx))
 }
 
-
+#' Separate taxonomy column in a table.
+#'
+#' @param inpt tbl/df. Input table.
+#' @param taxa_col String. Column to separate.
+#' @export
+separate_taxonomy_with_s <- function(inpt, taxa_col){
+  inpt <- inpt %>%
+    separate(taxa_col, into = c("d", "p", "c", "o", "f", "g", "s"), sep = ";") %>%
+    mutate(across(c("d", "p", "c", "o", "f", "g", "s"), ~ gsub("[dpcofgs]__","", .))) %>%
+    rename_with(~ case_when(
+      . == "d" ~ "Domain",
+      . == "p" ~ "Phylum",
+      . == "c" ~ "Class",
+      . == "o" ~ "Order",
+      . == "f" ~ "Family",
+      . == "g" ~ "Genus",
+      . == "s" ~ "Species",
+      TRUE ~ .
+    ))
+  return(inpt)
+}
