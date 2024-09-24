@@ -80,6 +80,7 @@ PanSweep_Analysis <- function(Json_Config_Path,
   phylo_md2 <- read_tsv(path_phylo_md2)
   test_tbls <- purrr::map(Species_Set, ~ {
     gpath <- file.path(path_to_read_counts, .x, paste0(.x, ".genes_presabs.tsv"))
+
     if (is_compressed) {
       gpath <- paste0(gpath, ".lz4")
       tsv <- read_tsv_arrow(gpath)
@@ -290,9 +291,9 @@ PanSweep_Analysis <- function(Json_Config_Path,
   #Now merges by default#
   if (verbose) message("Performing gene-to-species correlation lineage test...")
   Species_Abd <-read_tsv(path_to_species_abundance) %>%
-    pivot_longer(!species_id, names_to = "run", values_to = "species_count") %>%
+    pivot_longer(!species_id, names_to = "sample", values_to = "species_count") %>%
     pivot_wider(names_from = "species_id", values_from = "species_count") %>%
-    column_to_rownames("run") %>%
+    column_to_rownames("sample") %>%
     merge_columns(md=phylo_md2, fn=merge_fn_counts)
   #Determine significant species:
   species_set_corr <- unique(Genes_intr_extr$Species_id)
@@ -308,7 +309,10 @@ PanSweep_Analysis <- function(Json_Config_Path,
     merge_columns_tbl(tsv, md=phylo_md2, fn=merge_fn_counts)
   }) %>% setNames(species_set_corr)
   #Extract reads for significant genes:
-  Sig_Gene_copyNum <- purrr::map(species_set_corr, ~dplyr::filter(Gene_reads[[.x]], gene_id %in% Genes_intr_extr$Gene_id) %>% pivot_longer(!gene_id, names_to = "run", values_to = "Gene_count") %>% pivot_wider(names_from = "gene_id", values_from = "Gene_count") %>% column_to_rownames("run")) %>% setNames(species_set_corr)
+  Sig_Gene_copyNum <- purrr::map(species_set_corr, ~dplyr::filter(Gene_reads[[.x]], gene_id %in% Genes_intr_extr$Gene_id) %>% 
+                                   pivot_longer(!gene_id, names_to = "sample", values_to = "Gene_count") %>% 
+                                   pivot_wider(names_from = "gene_id", values_from = "Gene_count") %>% 
+                                   column_to_rownames("sample")) %>% setNames(species_set_corr)
   #Correlate with try catch & cor.test:
   Cor_Results <-
     lapply(names(Sig_Gene_copyNum), function(sp){
@@ -331,6 +335,8 @@ PanSweep_Analysis <- function(Json_Config_Path,
       }) %>% setNames(names(Sig_Gene_copyNum[[sp]]))
     }) %>% setNames(names(Sig_Gene_copyNum))
   # clean up the cor results
+  Species_family_only <- meta_genome_sep_taxa %>% select("species_id", "Family")
+    
   Cor_Results_df <-lapply(names(Cor_Results), function(s) {
     lapply(names(Cor_Results[[s]]), function(g){
       return(data.frame(Rho = Cor_Results[[s]][[g]] %>% unlist(use.names = FALSE), Species_Cor = names(Cor_Results[[s]][[g]]), stringsAsFactors = FALSE))
@@ -339,21 +345,47 @@ PanSweep_Analysis <- function(Json_Config_Path,
   # Find max and the species of the pangenome from the results (added multiple maxes)
   Cor_Results_max_targ <-  lapply(names(Cor_Results_df), function(s) {
     lapply(names(Cor_Results_df[[s]]), function(g){
+      target_family <- meta_genome_sep_taxa %>% dplyr::filter(species_id == s) %>% pull(Family)
+      family_df <- left_join(Cor_Results_df[[s]][[g]],  Species_family_only, by = c("Species_Cor" = "species_id"))
+                          #Cannot do which.max here!!      
       withCallingHandlers({
+
         max_n <- max(as.numeric(Cor_Results_df[[s]][[g]][["Rho"]]), na.rm = TRUE)
         max_i <- which(Cor_Results_df[[s]][[g]][["Rho"]] == max_n)
         max <- Cor_Results_df[[s]][[g]][max_i,]
         max_c <- length(max_i)
+        
+        Corr_Order <- family_df %>%
+          mutate(Rho_n = as.numeric(Rho)) %>%
+          filter(!is.na(Rho_n)) %>%
+          arrange(desc(Rho_n)) %>%
+          mutate(rank = row_number())
+        print(colnames(Corr_Order))
+        max_fam <- Corr_Order %>%
+          filter(Family == target_family) %>%
+          mutate(Rho_n = as.numeric(Rho)) %>%
+          filter(!is.na(Rho_n)) %>%
+          slice_max(Rho_n, n=1, with_ties = FALSE) %>%
+          select(Species_Cor, rank, Rho)
+       
+        max_f <- max_fam %>%
+          pull(Species_Cor)
+        max_f_r <- max_fam %>%
+          pull(rank)
       }, warning = function(w){
         if(grepl("NAs introduced by coercion", conditionMessage(w))){
           invokeRestart("muffleWarning")
         }
       })
-
       target <- Cor_Results_df[[s]][[g]][Cor_Results_df[[s]][[g]]$Species_Cor == s, ]
-      df1 <- rbind(target, max)
-      mark <- c("target", rep("max", max_c))
-      df <- cbind(df1, mark)
+      target_r <- Corr_Order %>%
+        filter(Species_Cor == s) %>%
+        pull(rank)
+      print(max_f_r)
+      df1 <- rbind(target, max_f, max)
+      mark <- c("target", "max_f", rep("max", max_c))
+      rank <- c(target_r, max_f_r, rep("max", max_c))
+      df <- cbind(df1, mark, rank)
       return(df)
     }) %>% setNames(names(Cor_Results_df[[s]]))
   }) %>% setNames(names(Cor_Results_df))
@@ -420,6 +452,10 @@ PanSweep_Analysis <- function(Json_Config_Path,
   #______________________________________________________________________________#
   #Add lineage and max species correlation to eggNOG table#
   uhgp_90_eggNOG <- left_join(uhgp_90_eggNOG, Cor_Sp_Ln_max_sp_DF %>% select("Gene", "Lineage_Shared", "cor_max_species"), by = c("Gene_id" = "Gene"))
+  uhgp_90_eggNOG <- left_join(uhgp_90_eggNOG, Species_Cor_DF %>% filter(mark == "max_f") %>%
+                                select(Gene, rank), by = c("Gene_id" = "Gene")) %>% rename(Family_max_rank = rank)
+  uhgp_90_eggNOG <- left_join(uhgp_90_eggNOG, Species_Cor_DF %>% filter(mark == "target") %>%
+                                select(Gene, rank), by = c("Gene_id" = "Gene")) %>% rename(Sp_rank = rank)
   #______________________________________________________________________________#
   #Create Report#
   if (verbose) message("Creating report and outputting results...")
