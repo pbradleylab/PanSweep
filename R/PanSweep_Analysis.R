@@ -278,12 +278,7 @@ PanSweep_Analysis <- function(Json_Config_Path,
 
 
   if (verbose) message("Performing gene-to-species correlation lineage test...")
-  browser()
-  #g2s_corr_lineage_test <- function(Species_Abd, Gene_reads, Sig_Genes, )
-  Species_Abd <-read_tsv(path_to_species_abundance) %>%
-    merge_columns_tbl(md=phylo_md2, fn=merge_fn_counts) %>%
-    column_to_rownames("species_id") %>%
-    as.matrix()
+
   #Determine significant species:
   species_set_corr <- unique(Genes_intr_extr$Species_id)
   #Read in and merge gene counts:
@@ -300,7 +295,7 @@ PanSweep_Analysis <- function(Json_Config_Path,
     }
     merge_columns_tbl(tsv, md=phylo_md2, fn=merge_fn_counts)
   }) %>% setNames(species_set_corr)
-  #Extract reads for significant genes:
+
   Sig_Gene_reads <- purrr::map(species_set_corr, ~ {
     dplyr::filter(Gene_reads[[.x]], gene_id %in% Genes_intr_extr$Gene_id) %>%
       column_to_rownames("gene_id") %>%
@@ -308,6 +303,13 @@ PanSweep_Analysis <- function(Json_Config_Path,
     }) %>% setNames(species_set_corr)
   #Correlate with try catch & cor.test:
   if (verbose) message("... ... correlating...")
+ #Prepare species for correlation
+  Species_Abd <-read_tsv(path_to_species_abundance) %>%
+    merge_columns_tbl(md=phylo_md2, fn=merge_fn_counts) %>%
+    column_to_rownames("species_id") %>%
+    as.matrix()
+
+  #Correlate with try catch & cor.test:
   pb <- progress_bar$new(total = Reduce(sum, lapply(Sig_Gene_reads, nrow)) * nrow(Species_Abd))
   Cor_Results <-
     lapply(names(Sig_Gene_reads), function(sp){
@@ -330,6 +332,8 @@ PanSweep_Analysis <- function(Json_Config_Path,
         }) %>% setNames(rownames(Species_Abd))
       }) %>% setNames(rownames(Sig_Gene_reads[[sp]]))
     }) %>% setNames(names(Sig_Gene_reads))
+
+
   # clean up the cor results
   Species_family_only <- meta_genome_sep_taxa %>% select("species_id", "Family")
 
