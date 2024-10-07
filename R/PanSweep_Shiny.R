@@ -180,12 +180,13 @@ PanSweep_Shiny <- function(loadData_Path){
       
       output$eNR <- renderDT({
         loadData$Analysis_output$uhgp_90_eggNOG %>%
-          select("Gene_id", "Species_id", "Species","Lineage_Shared", "cor_max_species", "Fdrs", "cluster_id", "Predicted_taxonomic_group", 
+          select("Gene_id", "Species_id", "Species","Lineage_Shared", "cor_max_species", "Sp_rank", "Family_max_rank", "Fdrs", "cluster_id", "Predicted_taxonomic_group", 
                  "Predicted_protein_name", "eggNOG_free_text_description") %>%
           mutate(Fdrs = format(signif(Fdrs, 3), scientific = TRUE))%>%
           arrange(Species_id, desc(Lineage_Shared), desc(Fdrs)) %>%
           rename("Gene ID" = "Gene_id", "Species ID" = "Species_id", "Lineage Shared" = "Lineage_Shared", 
-                 "Species with Max Correlation Value" = "cor_max_species", "Cluster ID" = "cluster_id","EggNOG Predicted taxonomic group" = "Predicted_taxonomic_group",
+                 "Species with Max Correlation Value" = "cor_max_species", "Species Correlation Rank" = "Sp_rank", "Family Correlation Rank" = "Family_max_rank",
+                 "Cluster ID" = "cluster_id","EggNOG Predicted taxonomic group" = "Predicted_taxonomic_group",
                  "Predicted protein name" = "Predicted_protein_name", 
                  "eggNOG free text description" = "eggNOG_free_text_description")
       })
