@@ -33,6 +33,7 @@ PanSweep depends on the following additional packages:
     * DT (>= 0.33)
     * knitr (>= 1.43)
     * kableExtra (>= 1.3.4)
+    * DiscreteFDR
 
 # Running PanSweep Analysis
 
@@ -81,11 +82,11 @@ The analysis report provides information on the number of genes found to be sign
 
 ### eggNOG & Correlation Report
 
-This report provides infromation on the individual genes from eggNOG from the UHGP-90 cluster ids. The linage test repots if the highest correlated species matches the genes originating pangenomes to the family level. The FDR for the Fisher's exact test multiple testing correction are provided. 
+This report provides infromation on the individual genes from eggNOG from the UHGP-90 cluster ids. The lineage test reports if the most-correlated species matches the pangenome's annotated species at the family level or lower. The FDR-corrected p-values for the Fisher's exact test are provided. 
 
 ### Ordination & Heatmap
 
-Ordination plots for UMAP, NMDS, and PCoA are made from the Jaccard co-occurrence matrix of genes by sample. The numerical sliders allow the adjustment of the n_neighbors and min_dist values for the UMAP ordination plot. The Jaccard similarity heatmap is based off of co-occurance of genes by sample.  If the heatmap or ordination plots are clicked the gene on the heatmap will be highlighted. 
+Ordination plots for UMAP, NMDS, and PCoA are made from the Jaccard co-occurrence matrix of genes by sample. The numerical sliders allow the adjustment of the n_neighbors and min_dist values for the UMAP ordination plot. The Jaccard similarity heatmap is based off of co-occurrence of genes by sample.  If the heatmap or ordination plots are clicked the gene on the heatmap will be highlighted. 
 
 ### NMDS
 The NMDS provides the NMDS ordination plot and stress plot by species for evaluation of NMDS results.
