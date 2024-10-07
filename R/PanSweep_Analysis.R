@@ -14,6 +14,7 @@
 #'@import progress
 #'@import DiscreteFDR
 #'@import stringr
+#'@import tidyr
 NULL
 
 #' PanSweep Analysis:
