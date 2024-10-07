@@ -1,14 +1,14 @@
 # PanSweep
-PanSweep is a tool to evaluate gene-level metagenomic analysis for differentially present genes by species, evaluate to determine if the gene are contamination from different species and provide functional information these genes. PanSweep is designed to work with MIDAS2 output and parquet databases from figshare *HERE LINK*. The package is designed to run two parts separately, an analysis and user interface. The analysis should be run on a HPC cluster while the user interface is can be run on personal computers. 
+PanSweep is a tool to evaluate gene-level metagenomic analysis for differentially present genes by species, evaluate to determine if the gene are contamination from different species and provide functional information these genes. PanSweep is designed to work with the output of (MIDAS2)[https://github.com/czbiohub-sf/MIDAS] run on the UHGG database, plus [Parquet databases](https://zenodo.org/uploads/13891285) from Zenodo. The package is designed to run two parts separately, an analysis and user interface. The analysis should be run on a HPC cluster or a workstation with sufficient RAM, while the visualization can be run on personal computers. 
 
 The analysis and results evaluation is fully described in *PAPER HERE*
 
 # Installing PanSweep Package
 
-PanSweep can be installed by using dev.tools to install from git hub. The following packages need to be installed for each part of the analysis.
+PanSweep can be installed directly from Github using devtools. The following packages need to be installed for each part of the analysis.
 
 ~~~~
-devtools::install_github()
+devtools::install_github("https://github.com/pbradleylab/pansweep")
 ~~~~
 
 PanSweep Analysis:
@@ -19,11 +19,11 @@ PanSweep Shiny:
 
 # Running PanSweep Analysis
 
-The PanSweep Analysis is designed to be run on a HPC cluster. It will need at least 15GB of memory to run. 
+The PanSweep Analysis is designed to be run on a HPC cluster or on a workstation with at least 15GB of memory.
 
-First, download the parquet databases from figshare *HERE* and place them in a directory the R analysis can read.
+First, download the [Parquet databases](https://zenodo.org/uploads/13891285) from Zenodo and unzip them. They can be unzipped into any directory, as long as the correct path is added to the config file.
 
-Next, prepare the JASON config file with the below paths. An empty config file is provided on this repository. If any paths are missing the analysis will be unable to run. For an example please reference the example.jason file on this repository.
+Next, prepare the JSON config file with the below paths. An empty config file is provided on this repository. If any paths are missing, the analysis will be unable to run. For an example please reference the `example.json` file on this repository, or the `cirrhosis.json` file in the cirrhosis-pansweep repository: https://github.com/pbradleylab/cirrhosis-pansweep/tree/main/pansweep
 
 |Path Name                         |Description                                                            |
 |----------------------------------|-----------------------------------------------------------------------|
