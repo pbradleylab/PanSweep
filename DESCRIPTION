@@ -6,7 +6,7 @@ Authors@R:
            comment = c(ORCID = "https://orcid.org/0009-0003-1623-3829")),
            person("Patrick", "Bradley", , "bradley.720@osu.edu", role = c("aut"),
            comment = c(ORCID = "https://orcid.org/0000-0002-9231-8344")))
-Description: PanSweep is a tool to evaluate gene-level metagenomic analysis for differentially present genes by species, evaluate to determine if the gene are contamination from different species and provide functional information these genes. PanSweep is designed to work with MIDAS2 output and parquet databases from figshare. The package is designed to run two parts separately, an analysis and user interface. The analysis should be run on a HPC cluster while the user interface is can be run on personal computers.
+Description: PanSweep is a tool to evaluate gene-level metagenomic analysis for differentially present genes by species, to determine whether these genes are likely to be pangenome contaminants, and to provide functional information about these genes.
 License: MIT
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
@@ -27,4 +27,5 @@ Imports:
     plotly (>= 4.10.3),
     DT (>= 0.33),
     knitr (>= 1.43),
-    kableExtra (>= 1.3.4)
+    kableExtra (>= 1.3.4),
+    DiscreteFDR (>= 2.0.0)

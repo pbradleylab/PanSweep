@@ -1,6 +1,10 @@
 # PanSweep
 
-PanSweep is a tool to evaluate gene-level metagenomic analysis for differentially present genes by species, evaluate to determine if the gene are contamination from different species and provide functional information these genes. PanSweep is designed to work with the output of (MIDAS2)[https://github.com/czbiohub-sf/MIDAS] run on the UHGG database, plus [Parquet databases](https://zenodo.org/uploads/13891285) from Zenodo. The package is designed to run two parts separately, an analysis and user interface. The analysis should be run on a HPC cluster or a workstation with sufficient RAM, while the visualization can be run on personal computers. 
+PanSweep is a tool to evaluate gene-level metagenomic analysis for differentially present genes by species, to determine whether these genes are likely to be pangenome contaminants, and to provide functional information about these genes.
+
+PanSweep is designed to work with the output of MIDAS2 (https://github.com/czbiohub-sf/MIDAS) run on the UHGG database, plus [Parquet databases](https://zenodo.org/uploads/13891285) from Zenodo. For an example workflow, see [https://github.com/pbradleylab/cirrhosis-pansweep/].
+
+The package is designed to run two parts separately, 1. an analysis of the MIDAS2 output, and 2. the Shiny visualization of the results. The analysis should be run on a HPC cluster or a workstation with sufficient RAM, while the visualization can be run on personal computers. 
 
 The analysis and results evaluation is fully described in *PAPER HERE*
 
@@ -29,6 +33,7 @@ PanSweep depends on the following additional packages:
     * DT (>= 0.33)
     * knitr (>= 1.43)
     * kableExtra (>= 1.3.4)
+    * DiscreteFDR
 
 # Running PanSweep Analysis
 
@@ -52,13 +57,17 @@ Next, prepare the JSON config file with the below paths. An empty config file is
 |path_to_presabs                   |path to folder that holds the species files for presabs and gene_counts|
 |save_folder_location              |path to user designated save folder                                    |  
 
+Note: the metadata file should be a tab-delimited file with three columns named "sample", "subject", and "env" (for environment). The "subject" column allows metagenomic samples from the same subject to be grouped/averaged together. The "env" column gives the status of the subject, e.g., "case" or "control." Currently, only two conditions can be compared.
+
 After the config file is saved, the analysis is ready to be run. Use the PanSweep_Analysis function outlined below:
 
 ~~~~    
 PanSweep_Analysis(Json_Config_Path = "Your/JSON/Path/here.JSON")
 ~~~~
 
-**Note:** The Corr_lower_limit variable is set to 3 automatically. This sets the number of significant genes needed per species to run the co-oocurance analysis, which includes the heatmap and ordination plots. This limit can be altered by changing the varriable but is is not recommended to go lower than 3 for the analysis.
+**Note:** The Corr_lower_limit parameter is set to 3 automatically. This sets the number of significant genes needed per species to run the co-occurrence analysis, which includes the heatmap and ordination plots. This limit can be altered by changing the appropriate function argument, but it is not recommended to go lower than three for the analysis as the results will not be very meaningful.
+
+**Note:** The analysis may take some time to finish. You can obtain more detailed progress information by adding the flag `verbose=TRUE` to the function call.
 
 The results of the analysis will be saved in a date stamped folder called "PanSweep_Analysis_Output_YYYY-MM-DD" as the file called "PanSweep_Analysis_Output.rds"
 
@@ -75,11 +84,11 @@ The analysis report provides information on the number of genes found to be sign
 
 ### eggNOG & Correlation Report
 
-This report provides infromation on the individual genes from eggNOG from the UHGP-90 cluster ids. The linage test repots if the highest correlated species matches the genes originating pangenomes to the family level. The FDR for the Fisher's exact test multiple testing correction are provided. 
+This report provides infromation on the individual genes from eggNOG from the UHGP-90 cluster ids. The lineage test reports if the most-correlated species matches the pangenome's annotated species at the family level or lower. The FDR-corrected p-values for the Fisher's exact test are provided. 
 
 ### Ordination & Heatmap
 
-Ordination plots for UMAP, NMDS, and PCoA are made from the Jaccard co-occurrence matrix of genes by sample. The numerical sliders allow the adjustment of the n_neighbors and min_dist values for the UMAP ordination plot. The Jaccard similarity heatmap is based off of co-occurance of genes by sample.  If the heatmap or ordination plots are clicked the gene on the heatmap will be highlighted. 
+Ordination plots for UMAP, NMDS, and PCoA are made from the Jaccard co-occurrence matrix of genes by sample. The numerical sliders allow the adjustment of the n_neighbors and min_dist values for the UMAP ordination plot. The Jaccard similarity heatmap is based off of co-occurrence of genes by sample.  If the heatmap or ordination plots are clicked the gene on the heatmap will be highlighted. 
 
 ### NMDS
 The NMDS provides the NMDS ordination plot and stress plot by species for evaluation of NMDS results.
