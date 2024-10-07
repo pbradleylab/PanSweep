@@ -13,6 +13,7 @@
 #'@import tibble
 #'@import progress
 #'@import DiscreteFDR
+#'@import stringr
 NULL
 
 #' PanSweep Analysis:
