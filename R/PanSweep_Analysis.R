@@ -215,7 +215,7 @@ PanSweep_Analysis <- function(Json_Config_Path,
 
   separate_taxonomy_with_s <- function(inpt, taxa_col){
     inpt <- inpt %>%
-      separate(taxa_col, into = c("d", "p", "c", "o", "f", "g", "s"), sep = ";") %>%
+      stringr::separate(taxa_col, into = c("d", "p", "c", "o", "f", "g", "s"), sep = ";") %>%
       mutate(across(c("d", "p", "c", "o", "f", "g", "s"), ~ gsub("[dpcofgs]__","", .))) %>%
       rename_with(~ case_when(
         . == "d" ~ "Domain",
