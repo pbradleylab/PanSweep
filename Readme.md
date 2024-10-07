@@ -52,6 +52,8 @@ Next, prepare the JSON config file with the below paths. An empty config file is
 |path_to_presabs                   |path to folder that holds the species files for presabs and gene_counts|
 |save_folder_location              |path to user designated save folder                                    |  
 
+Note: the metadata file should be a tab-delimited file with three columns named "sample", "subject", and "env" (for environment). The "subject" column allows metagenomic samples from the same subject to be grouped/averaged together. The "env" column gives the status of the subject, e.g., "case" or "control." Currently, only two conditions can be compared.
+
 After the config file is saved, the analysis is ready to be run. Use the PanSweep_Analysis function outlined below:
 
 ~~~~    
