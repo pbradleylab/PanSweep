@@ -73,7 +73,7 @@ PanSweep_Analysis <- function(Json_Config_Path,
   is_compressed <- Paths_and_Variables$Metadata$gene_data_is_compressed
   #Output:
   save_folder_location <- normalizePath(Paths_and_Variables$Output$save_folder_location)
-
+  if (!dir.exists(save_folder_location)) { dir.create(save_folder_location) }
   #Change variable name:
   Corr_lower_limit <- Co_occurrence_lower_limit
 
