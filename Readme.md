@@ -65,7 +65,9 @@ After the config file is saved, the analysis is ready to be run. Use the PanSwee
 PanSweep_Analysis(Json_Config_Path = "Your/JSON/Path/here.JSON")
 ~~~~
 
-**Note:** The Corr_lower_limit variable is set to 3 automatically. This sets the number of significant genes needed per species to run the co-oocurance analysis, which includes the heatmap and ordination plots. This limit can be altered by changing the varriable but is is not recommended to go lower than 3 for the analysis.
+**Note:** The Corr_lower_limit parameter is set to 3 automatically. This sets the number of significant genes needed per species to run the co-occurrence analysis, which includes the heatmap and ordination plots. This limit can be altered by changing the appropriate function argument, but it is not recommended to go lower than three for the analysis as the results will not be very meaningful.
+
+**Note:** The analysis may take some time to finish. You can obtain more detailed progress information by adding the flag `verbose=TRUE` to the function call.
 
 The results of the analysis will be saved in a date stamped folder called "PanSweep_Analysis_Output_YYYY-MM-DD" as the file called "PanSweep_Analysis_Output.rds"
 
