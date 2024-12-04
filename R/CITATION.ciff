@@ -1,0 +1,12 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+- family-names: "Stephanie"
+  given-names: "Majernik"
+  orcid: "https://orcid.org/0009-0003-1623-3829"
+- family-names: "Bradley"
+  given-names: "Patrick"
+  orcid: "https://orcid.org/0000-0002-9231-8344"
+title: "RNASeq quantification pipeline"
+date-released: 2023-10-09
+url: "https://github.com/pbradleylab/PanSweep.git"
