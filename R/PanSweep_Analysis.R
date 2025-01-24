@@ -311,13 +311,13 @@ PanSweep_Analysis <- function(Json_Config_Path,
       column_to_rownames("gene_id") %>%
       as.matrix()
   }) %>% setNames(species_set_corr)
- #Prepare species for correlation 
+ #Prepare species for correlation
   Species_Abd <-read_tsv(path_to_species_abundance) %>%
     merge_columns_tbl(md=phylo_md2, fn=merge_fn_counts) %>%
     column_to_rownames("species_id") %>%
     as.matrix()
 
-  #Correlate with try catch & cor.test:    
+  #Correlate with try catch & cor.test:
   pb <- progress_bar$new(total = Reduce(sum, lapply(Sig_Gene_reads, nrow)) * nrow(Species_Abd))
   Cor_Results <-
     lapply(names(Sig_Gene_reads), function(sp){
@@ -339,13 +339,13 @@ PanSweep_Analysis <- function(Json_Config_Path,
           )
         }) %>% setNames(rownames(Species_Abd))
       }) %>% setNames(rownames(Sig_Gene_reads[[sp]]))
-    }) %>% setNames(names(Sig_Gene_reads)) 
-  
+    }) %>% setNames(names(Sig_Gene_reads))
+
 
 
   # clean up the cor results
   Species_family_only <- meta_genome_sep_taxa %>% select("species_id", "Family")
-    
+
   Cor_Results_df <-lapply(names(Cor_Results), function(s) {
     lapply(names(Cor_Results[[s]]), function(g){
       return(data.frame(Rho = Cor_Results[[s]][[g]] %>% unlist(use.names = FALSE), Species_Cor = names(Cor_Results[[s]][[g]]), stringsAsFactors = FALSE))
@@ -356,14 +356,14 @@ PanSweep_Analysis <- function(Json_Config_Path,
     lapply(names(Cor_Results_df[[s]]), function(g){
       target_family <- meta_genome_sep_taxa %>% dplyr::filter(species_id == s) %>% pull(Family)
       family_df <- left_join(Cor_Results_df[[s]][[g]],  Species_family_only, by = c("Species_Cor" = "species_id"))
-                          #Cannot do which.max here!!      
+                          #Cannot do which.max here!!
       withCallingHandlers({
 
         max_n <- max(as.numeric(Cor_Results_df[[s]][[g]][["Rho"]]), na.rm = TRUE)
         max_i <- which(Cor_Results_df[[s]][[g]][["Rho"]] == max_n)
         max <- Cor_Results_df[[s]][[g]][max_i,]
         max_c <- length(max_i)
-        
+
         Corr_Order <- family_df %>%
           mutate(Rho_n = as.numeric(Rho)) %>%
           filter(!is.na(Rho_n)) %>%
@@ -376,7 +376,7 @@ PanSweep_Analysis <- function(Json_Config_Path,
           filter(!is.na(Rho_n)) %>%
           slice_max(Rho_n, n=1, with_ties = FALSE) %>%
           select(Species_Cor, rank, Rho)
-       
+
         max_f <- max_fam %>%
           pull(Species_Cor)
         max_f_r <- max_fam %>%
@@ -565,12 +565,12 @@ analyze_tbl <- function(tbl, md, min_obs = 0, merge=FALSE, merge_fn = base::max,
   clean_mtx <- merge_mtx[which_rows, ]
   conditions <- unique(md$env)
   if (verbose) message(paste0(length(conditions), " different conditions detected: ", paste0(conditions, collapse=", ")))
-  if (length(conditions) != 2) { error("Currently PanSweep only works when there are two conditions") }
+  if (length(conditions) != 2) { stop("Currently PanSweep only works when there are two conditions") }
   subjects_per_condition <- lapply(conditions, \(this_cond) {
     intersect(colnames(clean_mtx), md$subject[md$env==this_cond])
   })
   for (spc in subjects_per_condition) {
-    if (length(spc)==0) { error("Some conditions have no subjects represented in the data matrix")}
+    if (length(spc)==0) { stop("Some conditions have no subjects represented in the data matrix")}
   }
   if (verbose) message("Generating contingencies...")
   contingency_rows <- t(apply(clean_mtx, 1, \(x) {
@@ -591,7 +591,7 @@ analyze_tbl <- function(tbl, md, min_obs = 0, merge=FALSE, merge_fn = base::max,
   ) # we use the step-down method to report accurate adjusted p-values
 
   if (verbose) message("Returning results...")
-  pvals <- fisher_results$Data$raw.pvalues
+  pvals <- fisher_results$Data$Raw.pvalues
   names(pvals) <- rownames(clean_mtx)
   fdrs <- fisher_results$Adjusted
   names(fdrs) <- rownames(clean_mtx)

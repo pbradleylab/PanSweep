@@ -142,7 +142,7 @@ PanSweep_Shiny <- function(loadData_Path){
                    yaxis = list( 
                      title = "1"),
                    annotations = list(text = ~paste("n_neighbors:", input$n_n, "min_dist", input$min_dist), showarrow=FALSE ), ##MAKE PRERDY##
-                   ggplot2::theme(plot.title.position = element_text(vjust = 0.5))
+                   ggplot2::theme(plot.title.position = ggplot2::element_text(vjust = 0.5))
             )
           event_register(p, 'plotly_click')
           
