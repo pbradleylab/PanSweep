@@ -133,7 +133,8 @@ PanSweep_Analysis <- function(Json_Config_Path,
   #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~#
   #Adding cluster ids#
   Gut_Trans <- gsub("UHGG","", Gene_extract_tbl$Gene_id) %>%
-    gsub("_", "", .)
+    gsub("_", "", .) %>%
+    as.numeric()
 
   prqt_uhgp_90 <- arrow::open_dataset(path_uhgp_90_cluster, format = "parquet")
   prqt_uhgp_50 <- arrow::open_dataset(path_uhgp_50_cluster, format = "parquet")
