@@ -372,7 +372,7 @@ PanSweep_Analysis <- function(Json_Config_Path,
           filter(!is.na(Rho_n)) %>%
           arrange(desc(Rho_n)) %>%
           mutate(rank = row_number())
-        print(colnames(Corr_Order))
+        # print(colnames(Corr_Order))
         max_fam <- Corr_Order %>%
           filter(Family == target_family) %>%
           mutate(Rho_n = as.numeric(Rho)) %>%
@@ -393,7 +393,7 @@ PanSweep_Analysis <- function(Json_Config_Path,
       target_r <- Corr_Order %>%
         filter(Species_Cor == s) %>%
         pull(rank)
-      print(max_f_r)
+      # print(max_f_r)
       df1 <- rbind(target, max_f, max)
       mark <- c("target", "max_f", rep("max", max_c))
       rank <- c(target_r, max_f_r, rep("max", max_c))
@@ -484,6 +484,7 @@ PanSweep_Analysis <- function(Json_Config_Path,
   dir.create(save_folder_location_full)
   MIDAS_Analysis_Output <- setNames(mget(All_RDS_to_Save), All_RDS_to_Save)
   saveRDS(MIDAS_Analysis_Output, file.path(save_folder_location_full, paste0("PanSweep_Analysis_Output", ".rds")))
+  saveRDS(Analysis_output, file.path(save_folder_location_full, paste0("PanSweep_Analysis_TablesOnly", ".rds")))
   ################################################################################
 }
 
