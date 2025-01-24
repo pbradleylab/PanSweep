@@ -41,6 +41,7 @@ NULL
 #' @param Max_FDR  False discovery rate threshold. Set to 0.05 by default.
 #' @param merge_fn_binary  Function to use for merging binary data from different samples but the same subject. Default is `base::max`.
 #' @param merge_fn_counts  Function to use for merging count data from different samples but the same subject. Default is `base::sum`.
+#' @param signif_test_function  Function to use to take a given table of gene counts and return p-values, corrected p-values, and sample sizes; this allows users to override the built-in statistical test. Default is `analyze_tbl`.
 #' @param verbose  Boolean. Print messages; default is FALSE.
 #' @return Returned a date stamped folder called PanSweep_Analysis_Output_YYYY-MM-DD
 #' containing the file "PanSweep_Analysis_Output.rds".
@@ -52,6 +53,7 @@ PanSweep_Analysis <- function(Json_Config_Path,
                               Max_FDR = 0.05,
                               merge_fn_binary = base::max,
                               merge_fn_counts = base::sum,
+                              signif_test_function = analyze_tbl,
                               verbose=FALSE
                               ) {
   ####################################################################################################################
@@ -560,7 +562,7 @@ analyze_tbl <- function(tbl, md, min_obs = 0, merge=FALSE, merge_fn = base::max,
     merge_mtx <- mtx
   }
   if (verbose) message("Filtering...")
-  # filter out genes that don't have at least 3 observations (and 3 non-observations) => be there three times and not there three times
+  # filter out genes that don't have at least min_obs observations (and min_obs non-observations)
   which_rows <- apply(merge_mtx, 1, function(x) (sum(x) >= min_obs) & (sum(!x) >= min_obs))
   clean_mtx <- merge_mtx[which_rows, ]
   conditions <- unique(md$env)
