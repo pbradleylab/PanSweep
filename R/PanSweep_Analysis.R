@@ -82,9 +82,31 @@ PanSweep_Analysis <- function(Json_Config_Path,
   ####################################################################################################################
   if (verbose) message("Reading in presence-absence data...")
   phylo_md2 <- read_tsv(path_phylo_md2)
+  #Check for files:
+  MF <- c()
+  tryCatch({
+  MF <- purrr::map(Species_Set, ~ {
+    gpath <- file.path(path_to_read_counts, .x, paste0(.x, ".genes_presabs.tsv"))
+    if (is_compressed) {
+      gpath <- paste0(gpath, ".lz4")
+    } 
+    if (!file.exists(gpath)){
+      return(.x)
+    } else {
+      return(NA_character_)
+    }
+  })
+  MF <- MF[!is.na(MF)]
+  if (length(MF) >0){
+    stop(paste0("Missing genes snv files:"), paste(MF, collapse = ", "))
+  }
+  }, .error = function(e){
+    cat("Error:", e$message, "\n")
+  }
+  )
+  
   test_tbls <- purrr::map(Species_Set, ~ {
     gpath <- file.path(path_to_read_counts, .x, paste0(.x, ".genes_presabs.tsv"))
-
     if (is_compressed) {
       gpath <- paste0(gpath, ".lz4")
       tsv <- read_tsv_arrow(gpath)
@@ -93,6 +115,8 @@ PanSweep_Analysis <- function(Json_Config_Path,
     }
     merge_columns_tbl(tsv, md=phylo_md2, fn=merge_fn_binary)
   })
+  
+  
   if (verbose) message("Calculating tests...")
   # run Fisher test analysis
   pb <- progress_bar$new(total = length(test_tbls))
@@ -127,6 +151,13 @@ PanSweep_Analysis <- function(Json_Config_Path,
 
   #start list for report:
   Number_of_Significant_Genes <- nrow(Gene_extract_tbl)
+    tryCatch({
+      if (Number_of_Significant_Genes == 0){
+        stop("No significant genes identified")
+      }
+    }, error = function(e){
+      cat("Error: No significant genes identified", "\n")
+    })
 
 
   if (verbose) message("Getting extra info from Parquet databases...")
