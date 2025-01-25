@@ -119,7 +119,7 @@ PanSweep_Analysis <- function(Json_Config_Path,
 
   if (verbose) message("Calculating tests...")
   # run Fisher test analysis
-  pb <- progress_bar$new(total = length(test_tbls))
+  pb <- progress::progress_bar$new(total = length(test_tbls))
   test_results <- purrr::map(test_tbls, ~ {
     pb$tick()
     analyze_tbl(.x, md=phylo_md2)
@@ -247,22 +247,7 @@ PanSweep_Analysis <- function(Json_Config_Path,
   #Add in Taxonomy info#
   genome_metadata <- read_tsv(file= path_for_genomes_all_metadata)
 
-  separate_taxonomy_with_s <- function(inpt, taxa_col){
-    inpt <- inpt %>%
-      tidyr::separate(taxa_col, into = c("d", "p", "c", "o", "f", "g", "s"), sep = ";") %>%
-      mutate(across(c("d", "p", "c", "o", "f", "g", "s"), ~ gsub("[dpcofgs]__","", .))) %>%
-      rename_with(~ case_when(
-        . == "d" ~ "Domain",
-        . == "p" ~ "Phylum",
-        . == "c" ~ "Class",
-        . == "o" ~ "Order",
-        . == "f" ~ "Family",
-        . == "g" ~ "Genus",
-        . == "s" ~ "Species",
-        TRUE ~ .
-      ))
-    return(inpt)
-  }
+
 
   meta_genome_sep_taxa <- genome_metadata %>% separate_taxonomy_with_s("Lineage") %>%
     mutate(species_id = as.character(species_id))
@@ -516,152 +501,117 @@ analyze_tbl <- function(tbl, md, min_obs = 0, merge=FALSE, merge_fn = base::max,
 #'
 #'This function correlates genes in a given species' pangenome to all species abundances, then tests whether the highest-correlating taxa are in from the same taxonomic family as the species whose pangenome was tested.
 #'
-#' @param Sig_Gene_reads A named list of matrices with one matrix per pangenome tested. Rows of the matrices should be gene names, columns should be sample IDs, and values should be gene abundance.
+#' @param Sig_Gene_reads A named list of matrices with one matrix per pangenome tested. Names should correspond to a species ID in meta_genome_sep_taxa. Rows of the matrices should be gene names, columns should be sample IDs, and values should be gene abundance.
 #' @param Species_Abd A matrix with species IDs as rows and samples as columns; values are the abundance of that species in that column.
-#' @param meta_genome_sep_taxa  Tibble containing taxonomic information for each species ID. Must contain the columns "species_id" and "Domain" through "Species".
+#' @param meta_genome_sep_taxa  Tibble containing taxonomic information for each species ID. Must contain the columns "species_id" and "Domain" through "Species". See `PanSweep::separate_taxonomy_with_s()` if you have lineage strings instead.
 #' @return Returns a table with a report on the results.
 #'
 #'@export
-#' Species_family_only <- meta_genome_sep_taxa %>% select("species_id", "Family")
 species_to_gene_correlations <- function(Sig_Gene_reads, Species_Abd, meta_genome_sep_taxa) {
 
-  #Correlate with try catch & cor.test:
-  pb <- progress_bar$new(total = Reduce(sum, lapply(Sig_Gene_reads, nrow)) * nrow(Species_Abd))
-  Cor_Results <-
-    lapply(names(Sig_Gene_reads), function(sp){
-      lapply(rownames(Sig_Gene_reads[[sp]]), function(g){
-        lapply(rownames(Species_Abd), function(s){
-          pb$tick()
-          tryCatch({
-            g_x <- Sig_Gene_reads[[sp]][g,]
-            sp_y <- Species_Abd[s,colnames(Sig_Gene_reads[[sp]])]
-            cor.test(g_x, sp_y[names(g_x)], method = "spearman", exact = FALSE) %>% .$estimate
-          },
-          warning = function(w){
-            if (grepl("NaNs produced", w$message)){
-              return("NaNs")
-            } else if (grepl("the standard deviation is zero", w$message)){
-              return("SD0")
-            }
-          }
-          )
-        }) %>% setNames(rownames(Species_Abd))
-      }) %>% setNames(rownames(Sig_Gene_reads[[sp]]))
-    }) %>% setNames(names(Sig_Gene_reads))
+  meta_genome_sep_taxa <- mutate(meta_genome_sep_taxa,
+                                 species_id = as.character(species_id))
 
-  # clean up the cor results
-  Species_family_only <- meta_genome_sep_taxa %>% select("species_id", "Family")
+  # Correlate with cor (much faster, returns matrix):
+  pb <- progress::progress_bar$new(total = length(Sig_Gene_reads))
+  Cor_Results <- purrr::map(Sig_Gene_reads, function(sgr) {
+    pb$tick()
+    n <- intersect(colnames(sgr), colnames(Species_Abd))
+    cor(t(sgr[, n]),
+        t(Species_Abd[, n]),
+        method = 'spearman')
+  })
 
-  Cor_Results_df <-lapply(names(Cor_Results), function(s) {
-    lapply(names(Cor_Results[[s]]), function(g){
-      return(data.frame(Rho = Cor_Results[[s]][[g]] %>% unlist(use.names = FALSE), Species_Cor = names(Cor_Results[[s]][[g]]), stringsAsFactors = FALSE))
-    }) %>% setNames(names(Cor_Results[[s]]))
-  }) %>% setNames(names(Cor_Results))
-  # Find max and the species of the pangenome from the results (added multiple maxes)
-  Cor_Results_max_targ <-  lapply(names(Cor_Results_df), function(s) {
-    lapply(names(Cor_Results_df[[s]]), function(g){
+  # Find max and the species of the pangenome from the results (added multiple maxes), and turn this into "long" data
+  Cor_Results_max_targ <-  lapply(names(Cor_Results), function(s) {
+    lapply(rownames(Cor_Results[[s]]), function(g){
+      tbl <- enframe(Cor_Results[[s]][g, ], name="Species_Cor", value="Rho")
       target_family <- meta_genome_sep_taxa %>% dplyr::filter(species_id == s) %>% pull(Family)
-      family_df <- left_join(Cor_Results_df[[s]][[g]],  Species_family_only, by = c("Species_Cor" = "species_id"))
+      family_df <- left_join(
+        tbl,
+        meta_genome_sep_taxa %>% rename(Species_Cor_Name = Species),
+        by = c("Species_Cor" = "species_id"))
       #Cannot do which.max here!!
       withCallingHandlers({
-
-        max_n <- max(as.numeric(Cor_Results_df[[s]][[g]][["Rho"]]), na.rm = TRUE)
-        max_i <- which(Cor_Results_df[[s]][[g]][["Rho"]] == max_n)
-        max <- Cor_Results_df[[s]][[g]][max_i,]
-        max_c <- length(max_i)
-
         Corr_Order <- family_df %>%
           mutate(Rho_n = as.numeric(Rho)) %>%
           filter(!is.na(Rho_n)) %>%
           arrange(desc(Rho_n)) %>%
-          mutate(rank = row_number())
-        # print(colnames(Corr_Order))
-        max_fam <- Corr_Order %>%
-          filter(Family == target_family) %>%
-          mutate(Rho_n = as.numeric(Rho)) %>%
-          filter(!is.na(Rho_n)) %>%
+          mutate(rank = row_number()) %>%
+          mutate(mark = "") %>%
+          mutate(f_match = (Family == target_family),
+                 s_match = (Species_Cor == s))
+        max_any <- Corr_Order %>%
+          slice_max(Rho_n, n=1, with_ties = TRUE) %>%
+          mutate(mark = "max") %>%
+          arrange(rank)
+        max_any_fam <- Corr_Order %>%
+          filter(f_match) %>%
           slice_max(Rho_n, n=1, with_ties = FALSE) %>%
-          select(Species_Cor, rank, Rho)
-
-        max_f <- max_fam %>%
-          pull(Species_Cor)
-        max_f_r <- max_fam %>%
-          pull(rank)
+          mutate(mark = "max_f") %>%
+          arrange(rank)
+        s_target <- Corr_Order %>%
+          filter(s_match) %>%
+          mutate(mark = "target")
       }, warning = function(w){
         if(grepl("NAs introduced by coercion", conditionMessage(w))){
           invokeRestart("muffleWarning")
         }
       })
-      target <- Cor_Results_df[[s]][[g]][Cor_Results_df[[s]][[g]]$Species_Cor == s, ]
-      target_r <- Corr_Order %>%
-        filter(Species_Cor == s) %>%
-        pull(rank)
-      # print(max_f_r)
-      df1 <- rbind(target, max_f, max)
-      mark <- c("target", "max_f", rep("max", max_c))
-      rank <- c(target_r, max_f_r, rep("max", max_c))
-      df <- cbind(df1, mark, rank)
+      df <- rbind(s_target, max_any, max_any_fam) %>%
+        select(Species_Cor,
+               Species_Cor_Name,
+               Rho, mark, rank, f_match, s_match) %>%
+        mutate(Gene = g, Species = s)
       return(df)
-    }) %>% setNames(names(Cor_Results_df[[s]]))
-  }) %>% setNames(names(Cor_Results_df))
-  #Completely flatten
-  Layer_1 <- Cor_Results_max_targ %>% tibble::enframe(name =  "Species", value = "Data")
-  Layer_2 <- Layer_1 %>%
-    mutate(Data = purrr::map(Data, ~ tibble::enframe(.x, name = "Gene", value = "Data2"))) %>%
-    tidyr::unnest(Data)
-  Species_Cor_DF <- Layer_2 %>% tidyr::unnest(cols = Data2)
-  #______________________________________________________________________________#
-  #Determine if lineage to Family is shared#
-  #Extract species:
-  Cor_Sp_label <- lapply(names(Cor_Results_max_targ),function(s){
-    lapply(names(Cor_Results_max_targ[[s]]), function(g){
-      m <- Cor_Results_max_targ[[s]][[g]] %>% dplyr::filter(mark == "max") %>% pull(Species_Cor)
-      m_sp <- as.data.frame(meta_genome_sep_taxa %>% dplyr::filter(species_id == m) %>% select("Domain", "Phylum", "Class", "Order", "Family"))
-      rownames(m_sp) <- paste(rep("max", nrow(m_sp)), 1:nrow(m_sp))
-      t <-  Cor_Results_max_targ[[s]][[g]] %>% dplyr::filter(mark == "target") %>% pull(Species_Cor)
-      t_sp <- as.data.frame(meta_genome_sep_taxa %>% dplyr::filter(species_id == t) %>% select("Domain", "Phylum", "Class", "Order", "Family"))
-      rownames(t_sp) <- "target"
-      df <- bind_rows(t_sp, m_sp)
-      return(df)
-    }) %>% setNames(names(Cor_Results_max_targ[[s]]))
-  }) %>% setNames(names(Cor_Results_max_targ))
-  #Determine if lineage is shared (TRUE) or not (FALSE):
-  #All genes with multiple correlation maximums (or no max) return "Problem with correlation".
-  Cor_Sp_agree <- lapply(names(Cor_Sp_label), function(s){
-    lapply(names(Cor_Sp_label[[s]]), function(g){
-      if (nrow(Cor_Sp_label[[s]][[g]]) == 2){
-        max <- Cor_Sp_label[[s]][[g]] %>% t() %>% as.data.frame() %>% .$max
-        target <- Cor_Sp_label[[s]][[g]] %>% t() %>% as.data.frame() %>% .$target
-        all(max == target)
-      } else{
-        return("Problem with correlation")
-      }
-    }) %>% setNames(names(Cor_Sp_label[[s]]))
-  }) %>% setNames(names(Cor_Sp_label))
-  #Flatten to dataframe:
-  Layer_1 <- Cor_Sp_agree %>% tibble::enframe(name =  "Species", value = "Data")
-  Cor_Sp_agree_DF <- Layer_1 %>% mutate(Data = purrr::map(Data, ~ tibble::enframe(.x, name = "Gene", value = "Lineage_Shared"))) %>% tidyr::unnest(Data)
-  Cor_Sp_agree_DF$Lineage_Shared <- Cor_Sp_agree_DF$Lineage_Shared %>% unlist()
-  #______________________________________________________________________________#
-  #Report species with max spearman correlation#
-  sp_lable <- lapply(names(Cor_Results_max_targ),function(s){
-    lapply(names(Cor_Results_max_targ[[s]]), function(g){
-      m <- Cor_Results_max_targ[[s]][[g]] %>% dplyr::filter(mark == "max") %>% pull(Species_Cor)
-      m_sp <- as.data.frame(meta_genome_sep_taxa %>% dplyr::filter(species_id == m) %>% select("Species"))
-      if(m_sp == ''){
-        m_sp <- as.data.frame(meta_genome_sep_taxa %>% dplyr::filter(species_id == m) %>% select("Genus"))
-      }
-      return(as.data.frame(m_sp))
-    }) %>% setNames(names(Cor_Results_max_targ[[s]]))
-  }) %>% setNames(names(Cor_Results_max_targ))
-  #Need to keep information when unnesting:
-  Layer_1 <- sp_lable  %>% tibble::enframe(name =  "Species_OG", value = "Data")
-  Layer_2 <- Layer_1 %>% mutate(Data = purrr::map(Data, ~ tibble::enframe(.x, name = "Gene", value = "Data2"))) %>% tidyr::unnest(Data)
-  sp_report_DF <- Layer_2 %>% tidyr::unnest(cols = Data2)
-  #Transfer post DF being made:
-  sp_report_DF <- sp_report_DF %>%  mutate(Species = ifelse(is.na(Species), Genus, Species)) %>%
-    select("Species_OG", "Gene", "Species") %>% rename(cor_max_species = Species)
-  Cor_Sp_Ln_max_sp_DF <- Cor_Sp_agree_DF %>% left_join(sp_report_DF, by = "Gene") %>%
-    select("Species", "Gene", "Lineage_Shared", "cor_max_species")
-  return(list(Cor_Sp_Ln_max_sp_DF=Cor_Sp_Ln_max_sp_DF, Species_Cor_DF=Species_Cor_DF))
+    }) %>% setNames(rownames(Cor_Results[[s]]))
+  }) %>% setNames(names(Cor_Results))
+
+  # Completely flatten (easier because we've already added species, gene)
+  Species_Cor_DF <- Reduce(rbind, lapply(Cor_Results_max_targ,
+                                         \(.) Reduce(rbind, .)))
+
+  # Report key values per species and gene
+  report <- Species_Cor_DF %>%
+    dplyr::group_by(Species, Gene) %>%
+    dplyr::summarize(
+      Lineage_Shared = any(f_match[mark=="max"]),
+      cor_max_species = paste0(Species_Cor_Name[mark=="max"], collapse=";"),
+      cor_max_value = unique(Rho[mark=="max"])[1],
+      cor_max_fam_value = max(as.numeric(Rho[mark=="max_f"])),
+      cor_max_sp_value = as.numeric(Rho[mark=="target"]),
+      .groups="keep") %>%
+    dplyr::mutate(
+      cor_ratio = cor_max_value / cor_max_fam_value
+    )
+
+  return(list(Cor_Sp_Ln_max_sp_DF=report,
+              Species_Cor_DF=Species_Cor_DF))
+
+}
+
+#' Separate a column containing GTDB taxonomy strings to a standardized set of separate columns.
+#'
+#' @param inpt A table with a column that has GTDB taxonomy strings.
+#' @param taxa_col The column to separate.
+#' @return The table in `inpt` with new columns named "Domain", "Phylum", ..., "Species"
+#'
+#'@export
+separate_taxonomy_with_s <- function(inpt, taxa_col){
+  inpt <- inpt %>%
+    tidyr::separate_wider_delim({{ taxa_col }},
+                                names = c("d", "p", "c", "o", "f", "g", "s"),
+                                delim = ";") %>%
+    mutate(across(c("d", "p", "c", "o", "f", "g", "s"), ~ gsub("[dpcofgs]__","", .))) %>%
+    rename_with(~ case_when(
+      . == "d" ~ "Domain",
+      . == "p" ~ "Phylum",
+      . == "c" ~ "Class",
+      . == "o" ~ "Order",
+      . == "f" ~ "Family",
+      . == "g" ~ "Genus",
+      . == "s" ~ "Species",
+      TRUE ~ .
+    ))
+  return(inpt)
 }
