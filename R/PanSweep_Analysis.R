@@ -11,7 +11,6 @@
 #'@import vegan
 #'@import jsonlite
 #'@import tibble
-#'@import progress
 #'@import DiscreteFDR
 #'@import stringr
 #'@import tidyr
