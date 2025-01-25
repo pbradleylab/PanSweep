@@ -89,7 +89,7 @@ PanSweep_Analysis <- function(Json_Config_Path,
     gpath <- file.path(path_to_read_counts, .x, paste0(.x, ".genes_presabs.tsv"))
     if (is_compressed) {
       gpath <- paste0(gpath, ".lz4")
-    } 
+    }
     if (!file.exists(gpath)){
       return(.x)
     } else {
@@ -104,7 +104,7 @@ PanSweep_Analysis <- function(Json_Config_Path,
     cat("Error:", e$message, "\n")
   }
   )
-  
+
   test_tbls <- purrr::map(Species_Set, ~ {
     gpath <- file.path(path_to_read_counts, .x, paste0(.x, ".genes_presabs.tsv"))
     if (is_compressed) {
@@ -115,8 +115,8 @@ PanSweep_Analysis <- function(Json_Config_Path,
     }
     merge_columns_tbl(tsv, md=phylo_md2, fn=merge_fn_binary)
   })
-  
-  
+
+
   if (verbose) message("Calculating tests...")
   # run Fisher test analysis
   pb <- progress_bar$new(total = length(test_tbls))
@@ -351,154 +351,28 @@ PanSweep_Analysis <- function(Json_Config_Path,
     column_to_rownames("species_id") %>%
     as.matrix()
 
-  #Correlate with try catch & cor.test:
-  pb <- progress_bar$new(total = Reduce(sum, lapply(Sig_Gene_reads, nrow)) * nrow(Species_Abd))
-  Cor_Results <-
-    lapply(names(Sig_Gene_reads), function(sp){
-      lapply(rownames(Sig_Gene_reads[[sp]]), function(g){
-        lapply(rownames(Species_Abd), function(s){
-          pb$tick()
-          tryCatch({
-            g_x <- Sig_Gene_reads[[sp]][g,]
-            sp_y <- Species_Abd[s,colnames(Sig_Gene_reads[[sp]])]
-            cor.test(g_x, sp_y[names(g_x)], method = "spearman", exact = FALSE) %>% .$estimate
-          },
-          warning = function(w){
-            if (grepl("NaNs produced", w$message)){
-              return("NaNs")
-            } else if (grepl("the standard deviation is zero", w$message)){
-              return("SD0")
-            }
-          }
-          )
-        }) %>% setNames(rownames(Species_Abd))
-      }) %>% setNames(rownames(Sig_Gene_reads[[sp]]))
-    }) %>% setNames(names(Sig_Gene_reads))
+  Corr_Results_All <- species_to_gene_correlations(Sig_Gene_reads, Species_Abd, meta_genome_sep_taxa)
 
-
-
-  # clean up the cor results
-  Species_family_only <- meta_genome_sep_taxa %>% select("species_id", "Family")
-
-  Cor_Results_df <-lapply(names(Cor_Results), function(s) {
-    lapply(names(Cor_Results[[s]]), function(g){
-      return(data.frame(Rho = Cor_Results[[s]][[g]] %>% unlist(use.names = FALSE), Species_Cor = names(Cor_Results[[s]][[g]]), stringsAsFactors = FALSE))
-    }) %>% setNames(names(Cor_Results[[s]]))
-  }) %>% setNames(names(Cor_Results))
-  # Find max and the species of the pangenome from the results (added multiple maxes)
-  Cor_Results_max_targ <-  lapply(names(Cor_Results_df), function(s) {
-    lapply(names(Cor_Results_df[[s]]), function(g){
-      target_family <- meta_genome_sep_taxa %>% dplyr::filter(species_id == s) %>% pull(Family)
-      family_df <- left_join(Cor_Results_df[[s]][[g]],  Species_family_only, by = c("Species_Cor" = "species_id"))
-                          #Cannot do which.max here!!
-      withCallingHandlers({
-
-        max_n <- max(as.numeric(Cor_Results_df[[s]][[g]][["Rho"]]), na.rm = TRUE)
-        max_i <- which(Cor_Results_df[[s]][[g]][["Rho"]] == max_n)
-        max <- Cor_Results_df[[s]][[g]][max_i,]
-        max_c <- length(max_i)
-
-        Corr_Order <- family_df %>%
-          mutate(Rho_n = as.numeric(Rho)) %>%
-          filter(!is.na(Rho_n)) %>%
-          arrange(desc(Rho_n)) %>%
-          mutate(rank = row_number())
-        # print(colnames(Corr_Order))
-        max_fam <- Corr_Order %>%
-          filter(Family == target_family) %>%
-          mutate(Rho_n = as.numeric(Rho)) %>%
-          filter(!is.na(Rho_n)) %>%
-          slice_max(Rho_n, n=1, with_ties = FALSE) %>%
-          select(Species_Cor, rank, Rho)
-
-        max_f <- max_fam %>%
-          pull(Species_Cor)
-        max_f_r <- max_fam %>%
-          pull(rank)
-      }, warning = function(w){
-        if(grepl("NAs introduced by coercion", conditionMessage(w))){
-          invokeRestart("muffleWarning")
-        }
-      })
-      target <- Cor_Results_df[[s]][[g]][Cor_Results_df[[s]][[g]]$Species_Cor == s, ]
-      target_r <- Corr_Order %>%
-        filter(Species_Cor == s) %>%
-        pull(rank)
-      # print(max_f_r)
-      df1 <- rbind(target, max_f, max)
-      mark <- c("target", "max_f", rep("max", max_c))
-      rank <- c(target_r, max_f_r, rep("max", max_c))
-      df <- cbind(df1, mark, rank)
-      return(df)
-    }) %>% setNames(names(Cor_Results_df[[s]]))
-  }) %>% setNames(names(Cor_Results_df))
-  #Completely flatten
-  Layer_1 <- Cor_Results_max_targ %>% tibble::enframe(name =  "Species", value = "Data")
-  Layer_2 <- Layer_1 %>%
-    mutate(Data = purrr::map(Data, ~ tibble::enframe(.x, name = "Gene", value = "Data2"))) %>%
-    tidyr::unnest(Data)
-  Species_Cor_DF <- Layer_2 %>% tidyr::unnest(cols = Data2)
-  #______________________________________________________________________________#
-  #Determine if lineage to Family is shared#
-  #Extract species:
-  Cor_Sp_label <- lapply(names(Cor_Results_max_targ),function(s){
-    lapply(names(Cor_Results_max_targ[[s]]), function(g){
-      m <- Cor_Results_max_targ[[s]][[g]] %>% dplyr::filter(mark == "max") %>% pull(Species_Cor)
-      m_sp <- as.data.frame(meta_genome_sep_taxa %>% dplyr::filter(species_id == m) %>% select("Domain", "Phylum", "Class", "Order", "Family"))
-      rownames(m_sp) <- paste(rep("max", nrow(m_sp)), 1:nrow(m_sp))
-      t <-  Cor_Results_max_targ[[s]][[g]] %>% dplyr::filter(mark == "target") %>% pull(Species_Cor)
-      t_sp <- as.data.frame(meta_genome_sep_taxa %>% dplyr::filter(species_id == t) %>% select("Domain", "Phylum", "Class", "Order", "Family"))
-      rownames(t_sp) <- "target"
-      df <- bind_rows(t_sp, m_sp)
-      return(df)
-    }) %>% setNames(names(Cor_Results_max_targ[[s]]))
-  }) %>% setNames(names(Cor_Results_max_targ))
-  #Determine if lineage is shared (TRUE) or not (FALSE):
-  #All genes with multiple correlation maximums (or no max) return "Problem with correlation".
-  Cor_Sp_agree <- lapply(names(Cor_Sp_label), function(s){
-    lapply(names(Cor_Sp_label[[s]]), function(g){
-      if (nrow(Cor_Sp_label[[s]][[g]]) == 2){
-        max <- Cor_Sp_label[[s]][[g]] %>% t() %>% as.data.frame() %>% .$max
-        target <- Cor_Sp_label[[s]][[g]] %>% t() %>% as.data.frame() %>% .$target
-        all(max == target)
-      } else{
-        return("Problem with correlation")
-      }
-    }) %>% setNames(names(Cor_Sp_label[[s]]))
-  }) %>% setNames(names(Cor_Sp_label))
-  #Flatten to dataframe:
-  Layer_1 <- Cor_Sp_agree %>% tibble::enframe(name =  "Species", value = "Data")
-  Cor_Sp_agree_DF <- Layer_1 %>% mutate(Data = purrr::map(Data, ~ tibble::enframe(.x, name = "Gene", value = "Lineage_Shared"))) %>% tidyr::unnest(Data)
-  Cor_Sp_agree_DF$Lineage_Shared <- Cor_Sp_agree_DF$Lineage_Shared %>% unlist()
-  #______________________________________________________________________________#
-  #Report species with max spearman correlation#
-  sp_lable <- lapply(names(Cor_Results_max_targ),function(s){
-    lapply(names(Cor_Results_max_targ[[s]]), function(g){
-      m <- Cor_Results_max_targ[[s]][[g]] %>% dplyr::filter(mark == "max") %>% pull(Species_Cor)
-      m_sp <- as.data.frame(meta_genome_sep_taxa %>% dplyr::filter(species_id == m) %>% select("Species"))
-      if(m_sp == ''){
-        m_sp <- as.data.frame(meta_genome_sep_taxa %>% dplyr::filter(species_id == m) %>% select("Genus"))
-      }
-      return(as.data.frame(m_sp))
-    }) %>% setNames(names(Cor_Results_max_targ[[s]]))
-  }) %>% setNames(names(Cor_Results_max_targ))
-  #Need to keep information when unnesting:
-  Layer_1 <- sp_lable  %>% tibble::enframe(name =  "Species_OG", value = "Data")
-  Layer_2 <- Layer_1 %>% mutate(Data = purrr::map(Data, ~ tibble::enframe(.x, name = "Gene", value = "Data2"))) %>% tidyr::unnest(Data)
-  sp_report_DF <- Layer_2 %>% tidyr::unnest(cols = Data2)
-  #Transfer post DF being made:
-  sp_report_DF <- sp_report_DF %>%  mutate(Species = ifelse(is.na(Species), Genus, Species)) %>%
-    select("Species_OG", "Gene", "Species") %>% rename(cor_max_species = Species)
-  # Left_join Lineage agree:
-  Cor_Sp_Ln_max_sp_DF <- Cor_Sp_agree_DF %>% left_join(sp_report_DF, by = "Gene") %>%
-    select("Species", "Gene", "Lineage_Shared", "cor_max_species")
   #______________________________________________________________________________#
   #Add lineage and max species correlation to eggNOG table#
-  uhgp_90_eggNOG <- left_join(uhgp_90_eggNOG, Cor_Sp_Ln_max_sp_DF %>% select("Gene", "Lineage_Shared", "cor_max_species"), by = c("Gene_id" = "Gene"))
-  uhgp_90_eggNOG <- left_join(uhgp_90_eggNOG, Species_Cor_DF %>% filter(mark == "max_f") %>%
-                                select(Gene, rank), by = c("Gene_id" = "Gene")) %>% rename(Family_max_rank = rank)
-  uhgp_90_eggNOG <- left_join(uhgp_90_eggNOG, Species_Cor_DF %>% filter(mark == "target") %>%
-                                select(Gene, rank), by = c("Gene_id" = "Gene")) %>% rename(Sp_rank = rank)
+  uhgp_90_eggNOG <- left_join(uhgp_90_eggNOG,
+                              Corr_Results_All$Cor_Sp_Ln_max_sp_DF %>%
+                                select("Gene",
+                                       "Lineage_Shared",
+                                       "cor_max_species"),
+                              by = c("Gene_id" = "Gene"))
+  uhgp_90_eggNOG <- left_join(uhgp_90_eggNOG,
+                              Corr_Results_All$Species_Cor_DF %>%
+                                filter(mark == "max_f") %>%
+                                select(Gene, rank),
+                              by = c("Gene_id" = "Gene")) %>%
+    rename(Family_max_rank = rank)
+  uhgp_90_eggNOG <- left_join(uhgp_90_eggNOG,
+                              Corr_Results_All$Species_Cor_DF %>%
+                                filter(mark == "target") %>%
+                                select(Gene, rank),
+                              by = c("Gene_id" = "Gene")) %>%
+    rename(Sp_rank = rank)
   #______________________________________________________________________________#
   #Create Report#
   if (verbose) message("Creating report and outputting results...")
@@ -638,4 +512,156 @@ analyze_tbl <- function(tbl, md, min_obs = 0, merge=FALSE, merge_fn = base::max,
               clean_mtx=clean_mtx))
 }
 
+#'Perform and analyze gene-to-species correlation lineage tests.
+#'
+#'This function correlates genes in a given species' pangenome to all species abundances, then tests whether the highest-correlating taxa are in from the same taxonomic family as the species whose pangenome was tested.
+#'
+#' @param Sig_Gene_reads A named list of matrices with one matrix per pangenome tested. Rows of the matrices should be gene names, columns should be sample IDs, and values should be gene abundance.
+#' @param Species_Abd A matrix with species IDs as rows and samples as columns; values are the abundance of that species in that column.
+#' @param meta_genome_sep_taxa  Tibble containing taxonomic information for each species ID. Must contain the columns "species_id" and "Domain" through "Species".
+#' @return Returns a table with a report on the results.
+#'
+#'@export
+#' Species_family_only <- meta_genome_sep_taxa %>% select("species_id", "Family")
+species_to_gene_correlations <- function(Sig_Gene_reads, Species_Abd, meta_genome_sep_taxa) {
 
+  #Correlate with try catch & cor.test:
+  pb <- progress_bar$new(total = Reduce(sum, lapply(Sig_Gene_reads, nrow)) * nrow(Species_Abd))
+  Cor_Results <-
+    lapply(names(Sig_Gene_reads), function(sp){
+      lapply(rownames(Sig_Gene_reads[[sp]]), function(g){
+        lapply(rownames(Species_Abd), function(s){
+          pb$tick()
+          tryCatch({
+            g_x <- Sig_Gene_reads[[sp]][g,]
+            sp_y <- Species_Abd[s,colnames(Sig_Gene_reads[[sp]])]
+            cor.test(g_x, sp_y[names(g_x)], method = "spearman", exact = FALSE) %>% .$estimate
+          },
+          warning = function(w){
+            if (grepl("NaNs produced", w$message)){
+              return("NaNs")
+            } else if (grepl("the standard deviation is zero", w$message)){
+              return("SD0")
+            }
+          }
+          )
+        }) %>% setNames(rownames(Species_Abd))
+      }) %>% setNames(rownames(Sig_Gene_reads[[sp]]))
+    }) %>% setNames(names(Sig_Gene_reads))
+
+  # clean up the cor results
+  Species_family_only <- meta_genome_sep_taxa %>% select("species_id", "Family")
+
+  Cor_Results_df <-lapply(names(Cor_Results), function(s) {
+    lapply(names(Cor_Results[[s]]), function(g){
+      return(data.frame(Rho = Cor_Results[[s]][[g]] %>% unlist(use.names = FALSE), Species_Cor = names(Cor_Results[[s]][[g]]), stringsAsFactors = FALSE))
+    }) %>% setNames(names(Cor_Results[[s]]))
+  }) %>% setNames(names(Cor_Results))
+  # Find max and the species of the pangenome from the results (added multiple maxes)
+  Cor_Results_max_targ <-  lapply(names(Cor_Results_df), function(s) {
+    lapply(names(Cor_Results_df[[s]]), function(g){
+      target_family <- meta_genome_sep_taxa %>% dplyr::filter(species_id == s) %>% pull(Family)
+      family_df <- left_join(Cor_Results_df[[s]][[g]],  Species_family_only, by = c("Species_Cor" = "species_id"))
+      #Cannot do which.max here!!
+      withCallingHandlers({
+
+        max_n <- max(as.numeric(Cor_Results_df[[s]][[g]][["Rho"]]), na.rm = TRUE)
+        max_i <- which(Cor_Results_df[[s]][[g]][["Rho"]] == max_n)
+        max <- Cor_Results_df[[s]][[g]][max_i,]
+        max_c <- length(max_i)
+
+        Corr_Order <- family_df %>%
+          mutate(Rho_n = as.numeric(Rho)) %>%
+          filter(!is.na(Rho_n)) %>%
+          arrange(desc(Rho_n)) %>%
+          mutate(rank = row_number())
+        # print(colnames(Corr_Order))
+        max_fam <- Corr_Order %>%
+          filter(Family == target_family) %>%
+          mutate(Rho_n = as.numeric(Rho)) %>%
+          filter(!is.na(Rho_n)) %>%
+          slice_max(Rho_n, n=1, with_ties = FALSE) %>%
+          select(Species_Cor, rank, Rho)
+
+        max_f <- max_fam %>%
+          pull(Species_Cor)
+        max_f_r <- max_fam %>%
+          pull(rank)
+      }, warning = function(w){
+        if(grepl("NAs introduced by coercion", conditionMessage(w))){
+          invokeRestart("muffleWarning")
+        }
+      })
+      target <- Cor_Results_df[[s]][[g]][Cor_Results_df[[s]][[g]]$Species_Cor == s, ]
+      target_r <- Corr_Order %>%
+        filter(Species_Cor == s) %>%
+        pull(rank)
+      # print(max_f_r)
+      df1 <- rbind(target, max_f, max)
+      mark <- c("target", "max_f", rep("max", max_c))
+      rank <- c(target_r, max_f_r, rep("max", max_c))
+      df <- cbind(df1, mark, rank)
+      return(df)
+    }) %>% setNames(names(Cor_Results_df[[s]]))
+  }) %>% setNames(names(Cor_Results_df))
+  #Completely flatten
+  Layer_1 <- Cor_Results_max_targ %>% tibble::enframe(name =  "Species", value = "Data")
+  Layer_2 <- Layer_1 %>%
+    mutate(Data = purrr::map(Data, ~ tibble::enframe(.x, name = "Gene", value = "Data2"))) %>%
+    tidyr::unnest(Data)
+  Species_Cor_DF <- Layer_2 %>% tidyr::unnest(cols = Data2)
+  #______________________________________________________________________________#
+  #Determine if lineage to Family is shared#
+  #Extract species:
+  Cor_Sp_label <- lapply(names(Cor_Results_max_targ),function(s){
+    lapply(names(Cor_Results_max_targ[[s]]), function(g){
+      m <- Cor_Results_max_targ[[s]][[g]] %>% dplyr::filter(mark == "max") %>% pull(Species_Cor)
+      m_sp <- as.data.frame(meta_genome_sep_taxa %>% dplyr::filter(species_id == m) %>% select("Domain", "Phylum", "Class", "Order", "Family"))
+      rownames(m_sp) <- paste(rep("max", nrow(m_sp)), 1:nrow(m_sp))
+      t <-  Cor_Results_max_targ[[s]][[g]] %>% dplyr::filter(mark == "target") %>% pull(Species_Cor)
+      t_sp <- as.data.frame(meta_genome_sep_taxa %>% dplyr::filter(species_id == t) %>% select("Domain", "Phylum", "Class", "Order", "Family"))
+      rownames(t_sp) <- "target"
+      df <- bind_rows(t_sp, m_sp)
+      return(df)
+    }) %>% setNames(names(Cor_Results_max_targ[[s]]))
+  }) %>% setNames(names(Cor_Results_max_targ))
+  #Determine if lineage is shared (TRUE) or not (FALSE):
+  #All genes with multiple correlation maximums (or no max) return "Problem with correlation".
+  Cor_Sp_agree <- lapply(names(Cor_Sp_label), function(s){
+    lapply(names(Cor_Sp_label[[s]]), function(g){
+      if (nrow(Cor_Sp_label[[s]][[g]]) == 2){
+        max <- Cor_Sp_label[[s]][[g]] %>% t() %>% as.data.frame() %>% .$max
+        target <- Cor_Sp_label[[s]][[g]] %>% t() %>% as.data.frame() %>% .$target
+        all(max == target)
+      } else{
+        return("Problem with correlation")
+      }
+    }) %>% setNames(names(Cor_Sp_label[[s]]))
+  }) %>% setNames(names(Cor_Sp_label))
+  #Flatten to dataframe:
+  Layer_1 <- Cor_Sp_agree %>% tibble::enframe(name =  "Species", value = "Data")
+  Cor_Sp_agree_DF <- Layer_1 %>% mutate(Data = purrr::map(Data, ~ tibble::enframe(.x, name = "Gene", value = "Lineage_Shared"))) %>% tidyr::unnest(Data)
+  Cor_Sp_agree_DF$Lineage_Shared <- Cor_Sp_agree_DF$Lineage_Shared %>% unlist()
+  #______________________________________________________________________________#
+  #Report species with max spearman correlation#
+  sp_lable <- lapply(names(Cor_Results_max_targ),function(s){
+    lapply(names(Cor_Results_max_targ[[s]]), function(g){
+      m <- Cor_Results_max_targ[[s]][[g]] %>% dplyr::filter(mark == "max") %>% pull(Species_Cor)
+      m_sp <- as.data.frame(meta_genome_sep_taxa %>% dplyr::filter(species_id == m) %>% select("Species"))
+      if(m_sp == ''){
+        m_sp <- as.data.frame(meta_genome_sep_taxa %>% dplyr::filter(species_id == m) %>% select("Genus"))
+      }
+      return(as.data.frame(m_sp))
+    }) %>% setNames(names(Cor_Results_max_targ[[s]]))
+  }) %>% setNames(names(Cor_Results_max_targ))
+  #Need to keep information when unnesting:
+  Layer_1 <- sp_lable  %>% tibble::enframe(name =  "Species_OG", value = "Data")
+  Layer_2 <- Layer_1 %>% mutate(Data = purrr::map(Data, ~ tibble::enframe(.x, name = "Gene", value = "Data2"))) %>% tidyr::unnest(Data)
+  sp_report_DF <- Layer_2 %>% tidyr::unnest(cols = Data2)
+  #Transfer post DF being made:
+  sp_report_DF <- sp_report_DF %>%  mutate(Species = ifelse(is.na(Species), Genus, Species)) %>%
+    select("Species_OG", "Gene", "Species") %>% rename(cor_max_species = Species)
+  Cor_Sp_Ln_max_sp_DF <- Cor_Sp_agree_DF %>% left_join(sp_report_DF, by = "Gene") %>%
+    select("Species", "Gene", "Lineage_Shared", "cor_max_species")
+  return(list(Cor_Sp_Ln_max_sp_DF=Cor_Sp_Ln_max_sp_DF, Species_Cor_DF=Species_Cor_DF))
+}
