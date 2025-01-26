@@ -79,6 +79,9 @@ PanSweep_Analysis <- function(Json_Config_Path,
   Corr_lower_limit <- Co_occurrence_lower_limit
 
   ####################################################################################################################
+
+  if (length(Species_Set) == 0) { stop("No species provided") }
+
   if (verbose) message("Reading in presence-absence data...")
   phylo_md2 <- read_tsv(path_phylo_md2, show_col_types = FALSE)
   #Check for files:
@@ -97,6 +100,7 @@ PanSweep_Analysis <- function(Json_Config_Path,
     Species_Set <- names(which(gene_paths_exist))
     gene_paths <- gene_paths[Species_Set]
   }
+  if (length(Species_Set) == 0) { stop("No species had gene variant files") }
 
   test_tbls <- purrr::map(gene_paths, \(gpath) {
     if (is_compressed) {
