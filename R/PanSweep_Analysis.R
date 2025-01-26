@@ -279,13 +279,14 @@ PanSweep_Analysis <- function(Json_Config_Path,
   #______________________________________________________________________________#
   #UMAP_IT#
   Species <- Num_Sig_Genes_per_sp$Species_id
-  max_n_neighbs <- ceiling(nrow(x) / 3)
-  if ((max_n_neighbs - 2) > 10) {
-    umap_step_size = ceiling((max_n_neighbs-2)/10)
-  } else {
-    umap_step_size = 1
-  }
+
   U.Sp_corr <- lapply(M.Sp_corr, function(x) {
+    max_n_neighbs <- ceiling(nrow(x) / 3)
+    if ((max_n_neighbs - 2) > 10) {
+      umap_step_size = ceiling((max_n_neighbs-2)/10)
+    } else {
+      umap_step_size = 1
+    }
     n_n <- seq.int(from = 2, to = max_n_neighbs, by = umap_step_size)
     result_nn <- lapply(n_n, function(y) {
       min_dist_seq  <- seq(from = 0.1, to = 0.9, by = 0.1)
