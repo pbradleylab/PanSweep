@@ -114,9 +114,14 @@ PanSweep_Shiny <- function(loadData_Path){
 
       observeEvent(input$species_c, {
         req(loadData)
-        n_num <- as.numeric(names(loadData$U.Sp_corr[[paste0(input$species_c, sep='')]]))
+        possible_n <- names(loadData$U.Sp_corr[[paste0(input$species_c, sep='')]])
         n_stepsize <- 1
-        if (length(n_num) > 1) { n_stepsize <- n_num[2] - n_num[1] }
+        if (!is.null(possible_n)) {
+          n_num <- as.numeric(possible_n)
+          if (length(n_num) > 1) { n_stepsize <- n_num[2] - n_num[1] }
+        } else {
+          n_num <- 2
+        }
         updateSliderInput(session = session,
                           "n_n",
                           value = 2,

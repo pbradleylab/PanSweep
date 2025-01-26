@@ -301,8 +301,11 @@ PanSweep_Analysis <- function(Json_Config_Path,
   })
   #______________________________________________________________________________#
   #NMDS#
-  N.Sp_corr <- lapply(M.Sp_corr, function(x) metaMDS(x, distance = jaccard),
-                      trace=(as.numeric(verbose) - 1))
+  N.Sp_corr <- lapply(M.Sp_corr, function(x) {
+    metaMDS(x,
+            distance = jaccard,
+            trace = (as.numeric(verbose) - 1))
+  })
   N.Stress <- lapply(N.Sp_corr, function(x) round(x$stress, 3))
   N.StressPlot <- lapply(N.Sp_corr, function(x) stressplot(x))
   #______________________________________________________________________________#
