@@ -14,6 +14,7 @@
 #'@import DiscreteFDR
 #'@import stringr
 #'@import tidyr
+#'@import rlang
 NULL
 
 #' PanSweep Analysis:
@@ -41,6 +42,9 @@ NULL
 #' @param merge_fn_binary  Function to use for merging binary data from different samples but the same subject. Default is `base::max`.
 #' @param merge_fn_counts  Function to use for merging count data from different samples but the same subject. Default is `base::sum`.
 #' @param signif_test_function  Function to use to take a given table of gene counts and return p-values, corrected p-values, and sample sizes; this allows users to override the built-in statistical test. Default is `analyze_tbl`.
+#' @param correlation_function  Function to use to correlate gene and species matrices; this allows users to override the built-in correlation test. Default is `spearman_cor_wrapper`.
+#' @param save_folder_location  String. Path to save output results. Default is NULL; will override JSON value only if not NULL.
+#' @param return_not_save  Boolean. If FALSE, save PanSweep output as .rds files; if TRUE, simply return the data structure. Useful for running PanSweep within a larger pipeline. Default is FALSE.
 #' @param verbose  Boolean. Print messages; default is FALSE.
 #' @return Returned a date stamped folder called PanSweep_Analysis_Output_YYYY-MM-DD
 #' containing the file "PanSweep_Analysis_Output.rds".
@@ -53,7 +57,10 @@ PanSweep_Analysis <- function(Json_Config_Path,
                               merge_fn_binary = base::max,
                               merge_fn_counts = base::sum,
                               signif_test_function = analyze_tbl,
-                              verbose=FALSE
+                              correlation_function = spearman_cor_wrapper,
+                              save_folder_location = NULL,
+                              return_not_save = FALSE,
+                              verbose = FALSE
                               ) {
   ####################################################################################################################
   #Load in Paths and variables via JSON#
@@ -73,10 +80,16 @@ PanSweep_Analysis <- function(Json_Config_Path,
   path_to_read_counts <- normalizePath(Paths_and_Variables$Metadata$path_to_read_counts)
   is_compressed <- Paths_and_Variables$Metadata$gene_data_is_compressed
   #Output:
-  save_folder_location <- normalizePath(Paths_and_Variables$Output$save_folder_location)
+  # If the user did not provide anything, we use the value from the JSON file, otherwise we use what they provided
+  if (is.null(save_folder_location)) {
+    save_folder_location <- normalizePath(Paths_and_Variables$Output$save_folder_location)
+  }
+  if (is.null(save_folder_location)) { error("Neither user nor JSON file provided a save location")}
   if (!dir.exists(save_folder_location)) { dir.create(save_folder_location) }
   #Change variable name:
   Corr_lower_limit <- Co_occurrence_lower_limit
+
+  arg_to_string <- function(f) { rlang::as_label(rlang::enexpr(f)) }
 
   ####################################################################################################################
 
@@ -370,16 +383,21 @@ PanSweep_Analysis <- function(Json_Config_Path,
                                      c(Number_of_Significant_Genes, nrow(Num_Sig_Genes_per_sp), Num_rep_UHGP_90_clus_id, Num_rep_UHGP_50_clus_id)))
   Analysis_output_names <- c('Analysis_report','Number_of_Significant_Genes', 'UHGP_90_cluster_id_summ', 'UHGP_50_cluster_id_summ', 'Num_Sig_Genes_per_sp', 'uhgp_90_eggNOG')
   Analysis_output <- setNames(mget(Analysis_output_names), Analysis_output_names)
-
+  # Allow us to track how the analysis was run
+  PanSweep_Analysis_Parameters <- rlang::call_match(defaults=TRUE)
   ################################################################################
   #Create save files#
-  All_RDS_to_Save <- c("M.Sp_corr", "U.Sp_corr", "N.Sp_corr", "N.Stress", "P.Sp_corr", "Analysis_output")
+  All_RDS_to_Save <- c("M.Sp_corr", "U.Sp_corr", "N.Sp_corr", "N.Stress", "P.Sp_corr", "Analysis_output", "PanSweep_Analysis_Parameters")
   save_folder_name <- paste0("PanSweep_Analysis_Output_", format(Sys.Date(), "%Y-%m-%d"))
   save_folder_location_full <- file.path(save_folder_location, save_folder_name)
-  dir.create(save_folder_location_full)
-  MIDAS_Analysis_Output <- setNames(mget(All_RDS_to_Save), All_RDS_to_Save)
-  saveRDS(MIDAS_Analysis_Output, file.path(save_folder_location_full, paste0("PanSweep_Analysis_Output", ".rds")))
-  saveRDS(Analysis_output, file.path(save_folder_location_full, paste0("PanSweep_Analysis_TablesOnly", ".rds")))
+  if !(return_not_save) {
+    dir.create(save_folder_location_full)
+    MIDAS_Analysis_Output <- setNames(mget(All_RDS_to_Save), All_RDS_to_Save)
+    saveRDS(MIDAS_Analysis_Output, file.path(save_folder_location_full, paste0("PanSweep_Analysis_Output", ".rds")))
+    saveRDS(Analysis_output, file.path(save_folder_location_full, paste0("PanSweep_Analysis_TablesOnly", ".rds")))
+  } else {
+    return(MIDAS_Analysis_Output)
+  }
   ################################################################################
 }
 
