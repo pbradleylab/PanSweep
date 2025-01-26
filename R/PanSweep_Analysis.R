@@ -80,41 +80,32 @@ PanSweep_Analysis <- function(Json_Config_Path,
 
   ####################################################################################################################
   if (verbose) message("Reading in presence-absence data...")
-  phylo_md2 <- read_tsv(path_phylo_md2)
+  phylo_md2 <- read_tsv(path_phylo_md2, show_col_types = FALSE)
   #Check for files:
-  MF <- c()
-  tryCatch({
-  MF <- purrr::map(Species_Set, ~ {
-    gpath <- file.path(path_to_read_counts, .x, paste0(.x, ".genes_presabs.tsv"))
-    if (is_compressed) {
-      gpath <- paste0(gpath, ".lz4")
-    }
-    if (!file.exists(gpath)){
-      return(.x)
-    } else {
-      return(NA_character_)
-    }
-  })
-  MF <- MF[!is.na(MF)]
-  if (length(MF) >0){
-    stop(paste0("Missing genes snv files:"), paste(MF, collapse = ", "))
-  }
-  }, .error = function(e){
-    cat("Error:", e$message, "\n")
-  }
-  )
 
-  test_tbls <- purrr::map(Species_Set, ~ {
+  gene_paths <- purrr::map_chr(Species_Set, ~ {
     gpath <- file.path(path_to_read_counts, .x, paste0(.x, ".genes_presabs.tsv"))
     if (is_compressed) {
       gpath <- paste0(gpath, ".lz4")
-      tsv <- read_tsv_arrow(gpath)
+    }
+  }) %>% setNames(Species_Set)
+  gene_paths_exist <- purrr::map_lgl(gene_paths, file.exists)
+  if (any(!gene_paths_exist)) {
+    iwalk(gene_paths_exist, \(x, idx) if (!x) {
+      warning(paste0("Missing gene variant file: ", gene_paths[idx]))
+    })
+    Species_Set <- names(which(gene_paths_exist))
+    gene_paths <- gene_paths[Species_Set]
+  }
+
+  test_tbls <- purrr::map(gene_paths, \(gpath) {
+    if (is_compressed) {
+      tsv <- arrow::read_tsv_arrow(gpath)
     } else {
-      tsv <- read_tsv(gpath, col_types=cols())
+      tsv <- readr::read_tsv(gpath, col_types=cols())
     }
     merge_columns_tbl(tsv, md=phylo_md2, fn=merge_fn_binary)
   })
-
 
   if (verbose) message("Calculating tests...")
   # run Fisher test analysis
@@ -150,13 +141,13 @@ PanSweep_Analysis <- function(Json_Config_Path,
 
   #start list for report:
   Number_of_Significant_Genes <- nrow(Gene_extract_tbl)
-    tryCatch({
-      if (Number_of_Significant_Genes == 0){
-        stop("No significant genes identified")
-      }
-    }, error = function(e){
-      cat("Error: No significant genes identified", "\n")
-    })
+  if (is.null(Number_of_Significant_Genes)) {
+    stop("Error: No significant genes identified")
+  }
+  if (Number_of_Significant_Genes == 0) {
+    stop("Error: No significant genes identified")
+  }
+
 
 
   if (verbose) message("Getting extra info from Parquet databases...")
@@ -244,7 +235,7 @@ PanSweep_Analysis <- function(Json_Config_Path,
     right_join(UHGP_90_genes_of_int, by = c("query_name" = "cluster_id"), keep = TRUE)
   #______________________________________________________________________________#
   #Add in Taxonomy info#
-  genome_metadata <- read_tsv(file= path_for_genomes_all_metadata)
+  genome_metadata <- read_tsv(file= path_for_genomes_all_metadata, show_col_types=FALSE)
 
 
 
@@ -330,7 +321,7 @@ PanSweep_Analysis <- function(Json_Config_Path,
       as.matrix()
   }) %>% setNames(species_set_corr)
  #Prepare species for correlation
-  Species_Abd <-read_tsv(path_to_species_abundance) %>%
+  Species_Abd <-read_tsv(path_to_species_abundance, show_col_types=FALSE) %>%
     merge_columns_tbl(md=phylo_md2, fn=merge_fn_counts) %>%
     column_to_rownames("species_id") %>%
     as.matrix()
@@ -516,8 +507,8 @@ species_to_gene_correlations <- function(Sig_Gene_reads, Species_Abd, meta_genom
   Cor_Results <- purrr::map(Sig_Gene_reads, function(sgr) {
     pb$tick()
     n <- intersect(colnames(sgr), colnames(Species_Abd))
-    cor(t(sgr[, n]),
-        t(Species_Abd[, n]),
+    cor(t(sgr[, n, drop=FALSE]),
+        t(Species_Abd[, n, drop=FALSE]),
         method = 'spearman')
   })
 
