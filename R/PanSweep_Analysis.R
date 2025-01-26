@@ -502,17 +502,18 @@ analyze_tbl <- function(tbl, md, min_obs = 0, merge=FALSE, merge_fn = base::max,
               clean_mtx=clean_mtx))
 }
 
-#'Perform and analyze gene-to-species correlation lineage tests.
+#' Perform and analyze gene-to-species correlation lineage tests.
 #'
-#'This function correlates genes in a given species' pangenome to all species abundances, then tests whether the highest-correlating taxa are in from the same taxonomic family as the species whose pangenome was tested.
+#' This function correlates genes in a given species' pangenome to all species abundances, then tests whether the highest-correlating taxa are in from the same taxonomic family as the species whose pangenome was tested.
 #'
 #' @param Sig_Gene_reads A named list of matrices with one matrix per pangenome tested. Names should correspond to a species ID in meta_genome_sep_taxa. Rows of the matrices should be gene names, columns should be sample IDs, and values should be gene abundance.
 #' @param Species_Abd A matrix with species IDs as rows and samples as columns; values are the abundance of that species in that column.
 #' @param meta_genome_sep_taxa  Tibble containing taxonomic information for each species ID. Must contain the columns "species_id" and "Domain" through "Species". See `PanSweep::separate_taxonomy_with_s()` if you have lineage strings instead.
+#' @param cor_fxn Function to actually correlate the two matrices. Defaults to `spearman_cor_wrapper()`.
 #' @return Returns a table with a report on the results.
 #'
-#'@export
-species_to_gene_correlations <- function(Sig_Gene_reads, Species_Abd, meta_genome_sep_taxa) {
+#' @export
+species_to_gene_correlations <- function(Sig_Gene_reads, Species_Abd, meta_genome_sep_taxa, cor_fxn = spearman_cor_wrapper) {
 
   meta_genome_sep_taxa <- mutate(meta_genome_sep_taxa,
                                  species_id = as.character(species_id))
@@ -522,9 +523,8 @@ species_to_gene_correlations <- function(Sig_Gene_reads, Species_Abd, meta_genom
   Cor_Results <- purrr::map(Sig_Gene_reads, function(sgr) {
     pb$tick()
     n <- intersect(colnames(sgr), colnames(Species_Abd))
-    cor(t(sgr[, n, drop=FALSE]),
-        t(Species_Abd[, n, drop=FALSE]),
-        method = 'spearman')
+    spearman_cor_wrapper(sgr[, n, drop=FALSE],
+                         Species_Abd[, n, drop=FALSE])
   })
 
   # Find max and the species of the pangenome from the results (added multiple maxes), and turn this into "long" data
@@ -601,7 +601,7 @@ species_to_gene_correlations <- function(Sig_Gene_reads, Species_Abd, meta_genom
 #' @param taxa_col The column to separate.
 #' @return The table in `inpt` with new columns named "Domain", "Phylum", ..., "Species"
 #'
-#'@export
+#' @export
 separate_taxonomy_with_s <- function(inpt, taxa_col){
   inpt <- inpt %>%
     tidyr::separate_wider_delim({{ taxa_col }},
@@ -619,4 +619,21 @@ separate_taxonomy_with_s <- function(inpt, taxa_col){
       TRUE ~ .
     ))
   return(inpt)
+}
+
+#' Wrapper function for performing Spearman correlation between the genes and species matrices.
+#'
+#' This function is used by `species_to_gene_correlations()` and should not need to be called directly. It is made available mainly so that users can test that their own replacements accept and return data in the same format.
+#'
+#' @param genes_mtx Matrix of genes (rows) by samples (columns); values indicate gene abundance.
+#' @param species_mtx Matrix of genes (rows) by samples (columns); values indicate species abundance.
+#' @return Returns a matrix of Spearman's correlation values (possibly with some NAs) between genes (rows) and species (columns).
+#' @export
+spearman_cor_wrapper <- function(genes_mtx, species_mtx) {
+  if (colnames(genes_mtx) != colnames(species_mtx)) {
+    stop("Error: gene and species matrices need to have the same columns")
+  }
+  cor(t(genes),
+      t(species),
+      method = 'spearman')
 }

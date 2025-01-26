@@ -11,6 +11,7 @@ PanSweep_Analysis(
   Max_FDR = 0.05,
   merge_fn_binary = base::max,
   merge_fn_counts = base::sum,
+  signif_test_function = analyze_tbl,
   verbose = FALSE
 )
 }
@@ -29,6 +30,8 @@ default since DiscreteFDR automatically handles these cases well.}
 \item{merge_fn_binary}{Function to use for merging binary data from different samples but the same subject. Default is \code{base::max}.}
 
 \item{merge_fn_counts}{Function to use for merging count data from different samples but the same subject. Default is \code{base::sum}.}
+
+\item{signif_test_function}{Function to use to take a given table of gene counts and return p-values, corrected p-values, and sample sizes; this allows users to override the built-in statistical test. Default is \code{analyze_tbl}.}
 
 \item{verbose}{Boolean. Print messages; default is FALSE.}
 }
