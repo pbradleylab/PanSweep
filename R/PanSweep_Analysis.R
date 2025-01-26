@@ -648,7 +648,7 @@ separate_taxonomy_with_s <- function(inpt, taxa_col){
 #' @return Returns a matrix of Spearman's correlation values (possibly with some NAs) between genes (rows) and species (columns).
 #' @export
 spearman_cor_wrapper <- function(genes_mtx, species_mtx) {
-  if (colnames(genes_mtx) != colnames(species_mtx)) {
+  if (any(colnames(genes_mtx) != colnames(species_mtx))) {
     stop("Error: gene and species matrices need to have the same columns")
   }
   cor(t(genes),
