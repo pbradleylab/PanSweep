@@ -651,7 +651,7 @@ spearman_cor_wrapper <- function(genes_mtx, species_mtx) {
   if (any(colnames(genes_mtx) != colnames(species_mtx))) {
     stop("Error: gene and species matrices need to have the same columns")
   }
-  cor(t(genes),
-      t(species),
+  cor(t(genes_mtx),
+      t(species_mtx),
       method = 'spearman')
 }
