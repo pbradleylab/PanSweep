@@ -23,7 +23,11 @@
 #'@import shiny
 #'@import umap
 #'@import vegan
-#'@import tidyverse
+#'@import dplyr
+#'@import purrr
+#'@import readr
+#'@import tidyr
+#'@import stringr
 #'@import plotly
 #'@import DT
 #'@import knitr
@@ -110,12 +114,16 @@ PanSweep_Shiny <- function(loadData_Path){
 
       observeEvent(input$species_c, {
         req(loadData)
-        updateSliderInput(session = session, "n_n", value = 2, min = 2,
-                          max = loadData$M.Sp_corr%>%
-                            .[[paste0(input$species_c, sep='')]] %>%
-                            {nrow(.)/3} %>%
-                            ceiling()
-        )
+        n_num <- as.numeric(names(loadData$U.Sp_corr[[paste0(input$species_c, sep='')]]))
+        n_stepsize <- 1
+        if (length(n_num) > 1) { n_stepsize <- n_num[2] - n_num[1] }
+        updateSliderInput(session = session,
+                          "n_n",
+                          value = 2,
+                          min = min(n_num),
+                          max = max(n_num),
+                          step = n_stepsize
+                          )
       }
       )
 
