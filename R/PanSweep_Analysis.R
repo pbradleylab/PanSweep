@@ -294,7 +294,8 @@ PanSweep_Analysis <- function(Json_Config_Path,
   })
   #______________________________________________________________________________#
   #NMDS#
-  N.Sp_corr <- lapply(M.Sp_corr, function(x) metaMDS(x, distance = jaccard), trace=0)
+  N.Sp_corr <- lapply(M.Sp_corr, function(x) metaMDS(x, distance = jaccard),
+                      trace=(as.numeric(verbose) - 1))
   N.Stress <- lapply(N.Sp_corr, function(x) round(x$stress, 3))
   N.StressPlot <- lapply(N.Sp_corr, function(x) stressplot(x))
   #______________________________________________________________________________#
@@ -433,7 +434,7 @@ merge_columns_tbl <- function(tbl, md, fn=base::max, rowcol=1) {
 #' default since DiscreteFDR automatically handles these cases well.
 #' @param merge Boolean. If TRUE, merge samples from the same subject. If FALSE, assume samples are already merged. Default is FALSE.
 #' @param merge_fn Function. How to merge samples from the same subject? Default is `base::max`.
-#' @param verbose Boolean. If TRUE, print messages to indicate where we are in the process.
+#' @param verbose Boolean or integer. If not FALSE/0, print messages to indicate where we are in the process.
 #' @return Returns a list with p-values (`pvals`), adjusted p-values (`fdrs`), a list of subjects per condition (`subjects_per_condition`), and the filtered and merged data (`clean_mtx`).
 #'
 #'@export
