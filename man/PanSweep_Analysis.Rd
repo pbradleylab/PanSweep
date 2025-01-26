@@ -12,6 +12,9 @@ PanSweep_Analysis(
   merge_fn_binary = base::max,
   merge_fn_counts = base::sum,
   signif_test_function = analyze_tbl,
+  correlation_function = spearman_cor_wrapper,
+  save_folder_location = NULL,
+  return_not_save = FALSE,
   verbose = FALSE
 )
 }
@@ -32,6 +35,12 @@ default since DiscreteFDR automatically handles these cases well.}
 \item{merge_fn_counts}{Function to use for merging count data from different samples but the same subject. Default is \code{base::sum}.}
 
 \item{signif_test_function}{Function to use to take a given table of gene counts and return p-values, corrected p-values, and sample sizes; this allows users to override the built-in statistical test. Default is \code{analyze_tbl}.}
+
+\item{correlation_function}{Function to use to correlate gene and species matrices; this allows users to override the built-in correlation test. Default is \code{spearman_cor_wrapper}.}
+
+\item{save_folder_location}{String. Path to save output results. Default is NULL; will override JSON value only if not NULL.}
+
+\item{return_not_save}{Boolean. If FALSE, save PanSweep output as .rds files; if TRUE, simply return the data structure. Useful for running PanSweep within a larger pipeline. Default is FALSE.}
 
 \item{verbose}{Boolean. Print messages; default is FALSE.}
 }

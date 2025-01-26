@@ -45,7 +45,7 @@ NULL
 #' @param correlation_function  Function to use to correlate gene and species matrices; this allows users to override the built-in correlation test. Default is `spearman_cor_wrapper`.
 #' @param save_folder_location  String. Path to save output results. Default is NULL; will override JSON value only if not NULL.
 #' @param return_not_save  Boolean. If FALSE, save PanSweep output as .rds files; if TRUE, simply return the data structure. Useful for running PanSweep within a larger pipeline. Default is FALSE.
-#' @param verbose  Boolean. Print messages; default is FALSE.
+#' @param verbose  Boolean or integer. Print messages; default is TRUE. If set above 1, other messages may also be reported.
 #' @return Returned a date stamped folder called PanSweep_Analysis_Output_YYYY-MM-DD
 #' containing the file "PanSweep_Analysis_Output.rds".
 #'
@@ -60,7 +60,7 @@ PanSweep_Analysis <- function(Json_Config_Path,
                               correlation_function = spearman_cor_wrapper,
                               save_folder_location = NULL,
                               return_not_save = FALSE,
-                              verbose = FALSE
+                              verbose = TRUE
                               ) {
   ####################################################################################################################
   #Load in Paths and variables via JSON#
