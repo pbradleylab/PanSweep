@@ -361,19 +361,20 @@ PanSweep_Analysis <- function(Json_Config_Path,
   uhgp_90_eggNOG <- left_join(uhgp_90_eggNOG,
                               Corr_Results_All$Cor_Sp_Ln_max_sp_DF %>%
                                 select("Gene",
+                                       "Species_id",
                                        "Lineage_Shared",
                                        "cor_max_species"),
                               by = c("Gene_id" = "Gene", "Species_id" = "Species_id"))
   uhgp_90_eggNOG <- left_join(uhgp_90_eggNOG,
                               Corr_Results_All$Species_Cor_DF %>%
                                 filter(mark == "max_f") %>%
-                                select(Gene, rank),
+                                select(Gene, Species_id, rank),
                               by = c("Gene_id" = "Gene", "Species_id" = "Species_id")) %>%
     rename(Family_max_rank = rank)
   uhgp_90_eggNOG <- left_join(uhgp_90_eggNOG,
                               Corr_Results_All$Species_Cor_DF %>%
                                 filter(mark == "target") %>%
-                                select(Gene, rank),
+                                select(Gene, Species_id, rank),
                               by = c("Gene_id" = "Gene", "Species_id" = "Species_id")) %>%
     rename(Sp_rank = rank)
   #______________________________________________________________________________#
