@@ -390,7 +390,7 @@ PanSweep_Analysis <- function(Json_Config_Path,
   All_RDS_to_Save <- c("M.Sp_corr", "U.Sp_corr", "N.Sp_corr", "N.Stress", "P.Sp_corr", "Analysis_output", "PanSweep_Analysis_Parameters")
   save_folder_name <- paste0("PanSweep_Analysis_Output_", format(Sys.Date(), "%Y-%m-%d"))
   save_folder_location_full <- file.path(save_folder_location, save_folder_name)
-  if !(return_not_save) {
+  if (!return_not_save) {
     dir.create(save_folder_location_full)
     MIDAS_Analysis_Output <- setNames(mget(All_RDS_to_Save), All_RDS_to_Save)
     saveRDS(MIDAS_Analysis_Output, file.path(save_folder_location_full, paste0("PanSweep_Analysis_Output", ".rds")))
