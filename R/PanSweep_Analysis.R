@@ -279,8 +279,14 @@ PanSweep_Analysis <- function(Json_Config_Path,
   #______________________________________________________________________________#
   #UMAP_IT#
   Species <- Num_Sig_Genes_per_sp$Species_id
+  max_n_neighbs <- ceiling(nrow(x) / 3)
+  if ((max_n_neighbs - 2) > 10) {
+    umap_step_size = ceiling((max_n_neighbs-2)/10)
+  } else {
+    umap_step_size = 1
+  }
   U.Sp_corr <- lapply(M.Sp_corr, function(x) {
-    n_n <- seq.int(from = 2, to = ceiling(nrow(x) / 3))
+    n_n <- seq.int(from = 2, to = max_n_neighbs, by = umap_step_size)
     result_nn <- lapply(n_n, function(y) {
       min_dist_seq  <- seq(from = 0.1, to = 0.9, by = 0.1)
       umap_seq_result <- lapply(min_dist_seq, function(m){
@@ -557,7 +563,7 @@ species_to_gene_correlations <- function(Sig_Gene_reads, Species_Abd, meta_genom
         select(Species_Cor,
                Species_Cor_Name,
                Rho, mark, rank, f_match, s_match) %>%
-        mutate(Gene = g, Species = s)
+        mutate(Gene = g, Species_id = s)
       return(df)
     }) %>% setNames(rownames(Cor_Results[[s]]))
   }) %>% setNames(names(Cor_Results))
@@ -568,7 +574,7 @@ species_to_gene_correlations <- function(Sig_Gene_reads, Species_Abd, meta_genom
 
   # Report key values per species and gene
   report <- Species_Cor_DF %>%
-    dplyr::group_by(Species, Gene) %>%
+    dplyr::group_by(Species_id, Gene) %>%
     dplyr::summarize(
       Lineage_Shared = any(f_match[mark=="max"]),
       cor_max_species = paste0(Species_Cor_Name[mark=="max"], collapse=";"),
