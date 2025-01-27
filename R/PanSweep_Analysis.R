@@ -509,7 +509,14 @@ analyze_tbl <- function(tbl, md, min_obs = 0, merge=FALSE, merge_fn = base::max,
   ) # we use the step-down method to report accurate adjusted p-values
 
   if (verbose) message("Returning results...")
-  pvals <- fisher_results$Data$Raw.pvalues
+  # account for version issue
+  if ("Raw.pvalues" %in% fisher_results$Data) {
+    pvals <- fisher_results$Data$Raw.pvalues
+  } else if ("raw.pvalues" %in% fisher_results$Data) {
+    pvals <- fisher_results$Data$raw.pvalues
+  } else {
+    stop("Error: p-values not found in Fisher test results")
+  }
   names(pvals) <- rownames(clean_mtx)
   fdrs <- fisher_results$Adjusted
   names(fdrs) <- rownames(clean_mtx)
