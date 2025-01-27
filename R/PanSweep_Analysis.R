@@ -510,9 +510,9 @@ analyze_tbl <- function(tbl, md, min_obs = 0, merge=FALSE, merge_fn = base::max,
 
   if (verbose) message("Returning results...")
   # account for version issue
-  if ("Raw.pvalues" %in% fisher_results$Data) {
+  if ("Raw.pvalues" %in% names(fisher_results$Data)) {
     pvals <- fisher_results$Data$Raw.pvalues
-  } else if ("raw.pvalues" %in% fisher_results$Data) {
+  } else if ("raw.pvalues" %in% names(fisher_results$Data)) {
     pvals <- fisher_results$Data$raw.pvalues
   } else {
     stop("Error: p-values not found in Fisher test results")
