@@ -549,8 +549,8 @@ species_to_gene_correlations <- function(Sig_Gene_reads, Species_Abd, meta_genom
   Cor_Results <- purrr::map(Sig_Gene_reads, function(sgr) {
     pb$tick()
     n <- intersect(colnames(sgr), colnames(Species_Abd))
-    spearman_cor_wrapper(sgr[, n, drop=FALSE],
-                         Species_Abd[, n, drop=FALSE])
+    cor_fxn(sgr[, n, drop=FALSE],
+            Species_Abd[, n, drop=FALSE])
   })
 
   # Find max and the species of the pangenome from the results (added multiple maxes), and turn this into "long" data
@@ -662,4 +662,46 @@ spearman_cor_wrapper <- function(genes_mtx, species_mtx) {
   cor(t(genes_mtx),
       t(species_mtx),
       method = 'spearman')
+}
+
+#' Wrapper function for performing conditional Spearman correlation between the genes and species matrices, given that the gene was observed (non-zero).
+#'
+#' Can be selected as an alternative by passing it into `PanSweep::PanSweep_Analysis` as the argument `correlation_function`.
+#'
+#' @param genes_mtx Matrix of genes (rows) by samples (columns); values indicate gene abundance.
+#' @param species_mtx Matrix of genes (rows) by samples (columns); values indicate species abundance.
+#' @return Returns a matrix of conditional Spearman's correlation values (possibly with some NAs) between genes (rows) and species (columns).
+#' @export
+spearman_nonzero_wrapper <- function(genes_mtx, species_mtx) {
+  if (any(colnames(genes_mtx) != colnames(species_mtx))) {
+    stop("Error: gene and species matrices need to have the same columns")
+  }
+  t(cond_nonzero_spearmans(genes_mtx, species_mtx))
+}
+
+#' Perform Spearman correlations between two matrices *only* where the first matrix has a value greater than zero.
+#'
+#' Recommended use is through the cond_zero_genes wrapper function, but it is provided here so that users can experiment with the function.
+#'
+#' @param mtx1 Matrix of variables (rows) over observations (columns). Correlation will only be calculated over non-zero values.
+#' @param mtx2 Matrix of variables (rows) over observations (columns). Correlation is taken over all observations that match non-zero values of `mtx1`.
+#' @param min_obs Minimum number of observations to return a non-NA correlation. Default is 5.
+#' @return Returns a matrix of Spearman's correlation values (possibly with some NAs). Rows correspond to rows of `mtx2` and columns to rows of `mtx1.`
+#' @export
+cond_nonzero_spearmans <- function(mtx1, mtx2, min_obs=5) {
+  n <- intersect(colnames(mtx1), colnames(mtx2))
+  mtx1 <- mtx1[, n, drop=FALSE]
+  mtx2 <- mtx2[, n, drop=FALSE]
+  r <- apply(mtx1, 1, \(x) {
+    x2 <- x[x > 0]
+    if (length(x2) <= min_obs) {
+      return(rep(NA, nrow(mtx2)) %>%
+               setNames(rownames(mtx2)))
+    }
+    mtx2a <- mtx2[, names(x2), drop=FALSE]
+    cor(x2, t(mtx2a), method='spearman')
+  })
+  rownames(r) <- rownames(mtx2)
+  colnames(r) <- rownames(mtx1)
+  r
 }
