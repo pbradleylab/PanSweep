@@ -354,7 +354,7 @@ PanSweep_Analysis <- function(Json_Config_Path,
     column_to_rownames("species_id") %>%
     as.matrix()
 
-  Corr_Results_All <- species_to_gene_correlations(Sig_Gene_reads, Species_Abd, meta_genome_sep_taxa)
+  Corr_Results_All <- species_to_gene_correlations(Sig_Gene_reads, Species_Abd, meta_genome_sep_taxa, cor_fxn = correlation_function)
 
   #______________________________________________________________________________#
   #Add lineage and max species correlation to eggNOG table#
