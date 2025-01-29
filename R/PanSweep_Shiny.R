@@ -70,7 +70,9 @@ PanSweep_Shiny <- function(loadData_Path){
                                                selectInput(inputId = "species_c",
                                                            label = "Choose species:",
                                                            choices = names(loadData$N.Sp_corr)),
+                                               textOutput("Ord_Species"),
                                                actionButton("reset", "Reset")
+                                               
 
                                ),
                                column(10, plotlyOutput("ordination_plot"),
@@ -216,9 +218,14 @@ PanSweep_Shiny <- function(loadData_Path){
           loadData$Analysis_output$UHGP_50_cluster_id_summ
         } else if (input$report == "Species Report"){
           loadData$Analysis_output$Num_Sig_Genes_per_sp %>%
+            select("Species_id", "Species", "n") %>%
             rename("Species Id" = "Species_id") %>%
             rename("Number of Significant Genes in Species" = "n")
         }
+      })
+      
+      output$Ord_Species <- renderText({
+        species <- loadData$Analysis_output$Num_Sig_Genes_per_sp %>% filter(Species_id == input$species_c2) %>% pull(Species)
       })
 
 
