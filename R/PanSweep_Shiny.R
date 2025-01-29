@@ -32,10 +32,32 @@
 #'@import DT
 #'@import knitr
 #'@import kableExtra
+#'@import forcats
 #'
 #'@export
 PanSweep_Shiny <- function(loadData_Path){
+  chart_cols <- c("#f9977b",      # 1
+                  "#4d779e",   # 2
+                  "#007600",       # 3
+                  "#ee9a00",     # 4
+                  "#ff6347",      # 1
+                  "#4f94cd",  # 2
+                  "#28e158",        # 3
+                  "#e3bb65",       # 4
+                  "#18c9ef",     # 5
+                  "#e889b4",   # 6
+                  "#a8552c",         # 7
+                  "#9e466e",        # 6
+                  "#6e2d0d",       # 7
+                  "#444444",    # 8
+                  "#a4a4a4",      # 8
+                  "#cccccc",   # 8
+                  "#000000")       # 8
   loadData <- read_rds(loadData_Path)
+  loadData$M.Sp_corr <- lapply(loadData$M.Sp_corr, \(mtx) {
+    o <- hclust(dist(mtx))$order
+    mtx[o, o]
+  })
   if(interactive()){
 
     ui <- navbarPage( "PanSweep",
@@ -45,11 +67,11 @@ PanSweep_Shiny <- function(loadData_Path){
                                                         label = "Choose Report:",
                                                         choices = c("Overall Report", "Species Report", "UHGP-90 Repeat ids", "UHGP-50 Repeat ids"))
                                ),
-                               mainPanel(DTOutput("AnaR")),
+                               mainPanel(DT::DTOutput("AnaR")),
                       ),
 
                       tabPanel("eggNOG & Correlation Report",
-                               mainPanel(DTOutput("eNR"))
+                               mainPanel(DT::DTOutput("eNR"))
                       ),
                       tabPanel("Ordination & Heatmap",
                                fluidRow(column(2,
@@ -73,9 +95,9 @@ PanSweep_Shiny <- function(loadData_Path){
                                                actionButton("reset", "Reset")
 
                                ),
-                               column(10, plotlyOutput("ordination_plot"),
-                                      plotlyOutput("corrMax2"),
-                                      tableOutput("mtData")
+                               column(10, plotly::plotlyOutput("ordination_plot"),
+                                      plotly::plotlyOutput("corrMax2"),
+                                      shiny::tableOutput("mtData")
                                ),
 
 
@@ -87,8 +109,8 @@ PanSweep_Shiny <- function(loadData_Path){
                                              label = "Choose species:",
                                              choices = names(loadData$N.Sp_corr))
                                ),
-                               mainPanel(plotlyOutput("NMDS"),
-                                         plotOutput("stressPlot"))
+                               mainPanel(plotly::plotlyOutput("NMDS"),
+                                         shiny::plotOutput("stressPlot"))
                       )
     )
 
@@ -116,15 +138,19 @@ PanSweep_Shiny <- function(loadData_Path){
         req(loadData)
         possible_n <- names(loadData$U.Sp_corr[[paste0(input$species_c, sep='')]])
         n_stepsize <- 1
+        starting_value <- 2
         if (!is.null(possible_n)) {
           n_num <- as.numeric(possible_n)
-          if (length(n_num) > 1) { n_stepsize <- n_num[2] - n_num[1] }
-        } else {
-          n_num <- 2
+          if (length(n_num) > 1) {
+            n_stepsize <- n_num[2] - n_num[1]
+            starting_value <- n_num[order(abs(n_num - 10))[1]] #closest to 10
+          } else {
+            n_num <- 2
+          }
         }
         updateSliderInput(session = session,
                           "n_n",
-                          value = 2,
+                          value = starting_value,
                           min = min(n_num),
                           max = max(n_num),
                           step = n_stepsize
@@ -133,6 +159,33 @@ PanSweep_Shiny <- function(loadData_Path){
       )
 
       output$ordination_plot <-  renderPlotly({
+        # some data processing common to all:
+        this_eggNOG <- loadData$Analysis_output$uhgp_90_eggNOG %>%
+          filter(Species_id == paste0(input$species_c, sep='')) %>%
+          mutate(Predicted_taxonomic_group = replace_na(Predicted_taxonomic_group, "NA"))
+        top_taxa <- this_eggNOG %>%
+          count(Predicted_taxonomic_group) %>%
+          arrange(-n) %>%
+          deframe
+        if (length(top_taxa) > 15) {
+          tt_names <- c(names(top_taxa[1:14]), "Other")
+        } else {
+          tt_names <- names(top_taxa)
+        }
+        this_eggNOG <- this_eggNOG %>%
+          mutate(EggNOG_taxon = map_chr(Predicted_taxonomic_group, ~ {
+                if (.x %in% tt_names) return(.x) else return("Other")
+              }))
+
+        this_eggNOG <- this_eggNOG %>%
+          mutate(EggNOG_taxon = forcats::fct_relevel(
+            forcats::as_factor(EggNOG_taxon),
+            tt_names))
+
+        uniq_levels <- this_eggNOG %>% count(EggNOG_taxon, Lineage_Shared) %>% arrange(-Lineage_Shared, -n) %>% mutate(plotly_label = paste(EggNOG_taxon, Lineage_Shared, sep="<br />")) %>% mutate(order = row_number())
+        plotly_levels <- select(uniq_levels, plotly_label, order) %>% deframe
+
+        # Per-type of ordination:
         if(input$ord_plt == "UMAP"){
           n_n = input$n_n
           n_num <- as.numeric(names(loadData$U.Sp_corr[[paste0(input$species_c, sep='')]]))
@@ -146,9 +199,12 @@ PanSweep_Shiny <- function(loadData_Path){
             as.data.frame()%>%
             rownames_to_column() %>%
             rename("Gene_id" = "rowname") %>%
-            left_join(., loadData$Analysis_output$uhgp_90_eggNOG, "Gene_id") %>%
+            left_join(., this_eggNOG, "Gene_id") %>%
             plot_ly(., x = ~V1, y = ~V2, type = 'scatter', mode = 'markers',
-                    color= ~replace(.$Predicted_taxonomic_group, is.na(.$Predicted_taxonomic_group), "NA"),
+                    color= ~EggNOG_taxon,
+                    colors = chart_cols,
+                    symbol=~Lineage_Shared,
+                    symbols=c('o', 'circle'),
                     text = paste(.$Gene_id),
                     customdata = ~paste(.$Gene_id)) %>%
             layout(showlegend = TRUE,
@@ -160,38 +216,54 @@ PanSweep_Shiny <- function(loadData_Path){
                    annotations = list(text = ~paste("n_neighbors:", input$n_n, "min_dist", input$min_dist), showarrow=FALSE ), ##MAKE PRERDY##
                    ggplot2::theme(plot.title.position = ggplot2::element_text(vjust = 0.5))
             )
-          event_register(p, 'plotly_click')
 
 
         }
         else if(input$ord_plt == "NMDS"){
-          loadData$N.Sp_corr %>%
+          p <- loadData$N.Sp_corr %>%
             .[[paste0(input$species_c, sep='')]] %>%
             scores() %>%
             as.data.frame() %>%
             rownames_to_column() %>%
             rename("Gene_id" = "rowname") %>%
-            left_join(., loadData$Analysis_output$uhgp_90_eggNOG, "Gene_id") %>%
-            plot_ly(x = ~NMDS1, y = ~NMDS2, type = "scatter", mode = "markers",  color= ~replace(.$Predicted_taxonomic_group, is.na(.$Predicted_taxonomic_group), "NA"),
-                    text = paste(.$Gene_id), customdata = ~paste(.$Gene_id), showlegend = TRUE, legendgroup = "markers")%>%
+            left_join(., this_eggNOG, "Gene_id") %>%
+            plot_ly(x = ~NMDS1, y = ~NMDS2, type = "scatter", mode = "markers",
+                    color= ~EggNOG_taxon,
+                    text = paste(.$Gene_id),
+                    colors = chart_cols,
+                    symbol=~Lineage_Shared,
+                    symbols=c('o', 'circle'),
+                    customdata = ~paste(.$Gene_id),
+                    showlegend = TRUE,
+                    legendgroup = "markers")%>%
             #add_text(textfont = list(color = "black"), textposition = "top right", showlegend = FALSE) %>%
             layout(plot_bgcolor = "#e5ecf6",
                    annotations = list(text = ~paste("stress", loadData$N.Stress[[paste0(input$species_c2, sep='')]]), showarrow=FALSE))
         }
         else if(input$ord_plt == "PCoA"){
-          loadData$P.Sp_corr %>%
+          p <- loadData$P.Sp_corr %>%
             .[[paste0(input$species_c, sep='')]] %>%
             .$points %>%
             as.data.frame() %>%
             rownames_to_column() %>%
             rename("Gene_id" = "rowname") %>%
-            left_join(., loadData$Analysis_output$uhgp_90_eggNOG, "Gene_id") %>%
+            left_join(., this_eggNOG, "Gene_id") %>%
             plot_ly(x = ~V1, y = ~V2, type = 'scatter', mode = 'markers',
-                    color= ~replace(.$Predicted_taxonomic_group, is.na(.$Predicted_taxonomic_group), "NA"),
+                    color= ~EggNOG_taxon,
                     text = paste(.$Gene_id),
+                    colors = chart_cols,
+                    symbol=~Lineage_Shared,
+                    symbols=c('o', 'circle'),
                     customdata = ~paste(.$Gene_id)) %>%
             layout(showlegend = TRUE, plot_bgcolor = "#e5ecf6")
         }
+        pb <- plotly_build(p)
+        for (i in 1:length(pb$x$data)) {
+          if (pb$x$data[[i]]$name %in% names(plotly_levels)) {
+            pb$x$data[[i]]$legendrank <- plotly_levels[pb$x$data[[i]]$name]
+          }
+        }
+        event_register(pb, 'plotly_click')
       })
 
       output$eNR <- renderDT({

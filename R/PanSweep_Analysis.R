@@ -42,7 +42,7 @@ NULL
 #' @param merge_fn_binary  Function to use for merging binary data from different samples but the same subject. Default is `base::max`.
 #' @param merge_fn_counts  Function to use for merging count data from different samples but the same subject. Default is `base::sum`.
 #' @param signif_test_function  Function to use to take a given table of gene counts and return p-values, corrected p-values, and sample sizes; this allows users to override the built-in statistical test. Default is `analyze_tbl`.
-#' @param correlation_function  Function to use to correlate gene and species matrices; this allows users to override the built-in correlation test. Default is `spearman_cor_wrapper`.
+#' @param correlation_function  Function to use to correlate gene and species matrices; this allows users to override the built-in correlation test. Default is `PanSweep::spearman_cor_wrapper`.
 #' @param save_folder_location  String. Path to save output results. Default is NULL; will override JSON value only if not NULL.
 #' @param return_not_save  Boolean. If FALSE, save PanSweep output as .rds files; if TRUE, simply return the data structure. Useful for running PanSweep within a larger pipeline. Default is FALSE.
 #' @param verbose  Boolean or integer. Print messages; default is TRUE. If set above 1, other messages may also be reported.
@@ -666,7 +666,7 @@ spearman_cor_wrapper <- function(genes_mtx, species_mtx) {
 
 #' Wrapper function for performing conditional Spearman correlation between the genes and species matrices, given that the gene was observed (non-zero).
 #'
-#' Can be selected as an alternative by passing it into `PanSweep::PanSweep_Analysis` as the argument `correlation_function`.
+#' Can be selected as an alternative by passing it into `PanSweep_Analysis()` with the argument `correlation_function=PanSweep::spearman_nonzero_wrapper`.
 #'
 #' @param genes_mtx Matrix of genes (rows) by samples (columns); values indicate gene abundance.
 #' @param species_mtx Matrix of genes (rows) by samples (columns); values indicate species abundance.
