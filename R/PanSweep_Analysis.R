@@ -270,7 +270,8 @@ PanSweep_Analysis <- function(Json_Config_Path,
   #Number of genes per species#
   Num_Sig_Genes_per_sp <-Gene_extract_tbl %>%
     group_by(Species_id) %>%
-    count()
+    count() %>%
+    left_join(meta_genome_sep_taxa %>% select(species_id, Species), by = c("Species_id" = "species_id"))
 
   Test <- sum(Num_Sig_Genes_per_sp$n)
   #______________________________________________________________________________#
