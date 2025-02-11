@@ -257,7 +257,9 @@ PanSweep_Analysis <- function(Json_Config_Path,
 
 
   meta_genome_sep_taxa <- genome_metadata %>% separate_taxonomy_with_s("Lineage") %>%
-    mutate(species_id = as.character(species_id))
+    mutate(species_id = as.character(species_id)) %>%
+    #when species_id is null fill with genus!
+    mutate(Species = if_else(Species == "" | is.na(Species), Genus, Species))
 
   uhgp_90_eggNOG <- uhgp_90_eggNOG %>%
     left_join(meta_genome_sep_taxa, by = c("Species_id" = "species_id"), keep = TRUE)
