@@ -2,11 +2,11 @@
 
 PanSweep is a tool to evaluate gene-level metagenomic analysis for differentially present genes by species, to determine whether these genes are likely to be pangenome contaminants, and to provide functional information about these genes.
 
-PanSweep is designed to work with the output of MIDAS2 (https://github.com/czbiohub-sf/MIDAS) run on the UHGG database, plus [Parquet databases](https://zenodo.org/uploads/13891285) from Zenodo. For an example workflow, see https://github.com/pbradleylab/cirrhosis-pansweep/. Example test data is also available at Zenodo: https://zenodo.org/uploads/13891285
+PanSweep is designed to work with the output of MIDAS2 (https://github.com/czbiohub-sf/MIDAS) run on the UHGG database, plus [Parquet databases](https://zenodo.org/records/14852853) from Zenodo. For an example workflow, see https://github.com/pbradleylab/cirrhosis-pansweep/. Example test data is also available at Zenodo: https://zenodo.org/uploads/13891285
 
 The package is designed to run two parts separately, 1. an analysis of the MIDAS2 output, and 2. the Shiny visualization of the results. The analysis should be run on a HPC cluster or a workstation with sufficient RAM, while the visualization can be run on personal computers. 
 
-The analysis and results evaluation is fully described in *LINK TO PAPER HERE*
+The analysis and results evaluation are fully described in [the PanSweep manuscript](https://www.biorxiv.org/content/10.1101/2024.10.11.617902v1).
 
 # Installing PanSweep Package
 
