@@ -6,7 +6,7 @@ PanSweep is designed to work with the output of MIDAS2 (https://github.com/czbio
 
 The package is designed to run two parts separately, 1. an analysis of the MIDAS2 output, and 2. the Shiny visualization of the results. The analysis should be run on a HPC cluster or a workstation with sufficient RAM, while the visualization can be run on personal computers. 
 
-The analysis and results evaluation are fully described in [the PanSweep manuscript](https://www.biorxiv.org/content/10.1101/2024.10.11.617902v1).
+The analysis and results evaluation are fully described in [the PanSweep manuscript](https://www.biorxiv.org/content/10.1101/2024.10.11.617902v1). Code to generate figures is available in the repositories https://github.com/pbradleylab/Updated_PanSweep_Figure_Code and https://github.com/pbradleylab/cirrhosis-pansweep/.
 
 # Installing PanSweep Package
 
